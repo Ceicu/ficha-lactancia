@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Panel de lactancia · Ceci Quevedo</title>
+<meta name="robots" content="noindex,nofollow">
+<meta name="theme-color" content="#5D7DA3">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Tinos:ital,wght@1,700&family=Ubuntu:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="estilos.css">
+<style>
+  .envoltura.ancha{max-width:860px}
+  .tabs{display:flex;gap:6px;overflow-x:auto;margin:16px -16px 0;padding:0 16px 4px;scrollbar-width:none}
+  .tabs::-webkit-scrollbar{display:none}
+  .tab{flex:none;border:none;border-radius:999px;padding:10px 16px;background:rgba(255,255,255,.2);color:#fff;font-weight:500;cursor:pointer;min-height:44px}
+  .tab[aria-selected=true]{background:#fff;color:var(--tinta)}
+  .ficha-item{display:flex;align-items:center;gap:12px;cursor:pointer;text-decoration:none;color:inherit}
+  .ficha-item .bebe{font-weight:700}
+  .ficha-item .meta{font-size:14px;color:var(--gris)}
+  .badge{display:inline-block;border-radius:999px;padding:3px 10px;font-size:13px;font-weight:700;color:#fff}
+  .b-Alta{background:var(--rojo)} .b-Media{background:var(--ambar)} .b-Baja{background:var(--verde)}
+  .estado{font-size:13px;color:var(--gris);margin-left:auto;text-align:right}
+  .resumen h3{font-size:18px}
+  .fila-botones{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}
+  .fila-botones .btn{flex:1;min-width:150px;font-size:15px;padding:12px}
+  .resp-sec h3{margin:20px 0 6px;font-size:18px}
+  .resp{padding:8px 0;border-bottom:1px solid var(--gris-cl)}
+  .resp .k{font-size:14px;color:var(--gris)}
+  .resp .v{font-weight:500}
+  .test-tit{display:flex;align-items:center;gap:8px;justify-content:space-between}
+  .test-tit h3{margin:0;font-size:19px}
+  .score{background:var(--azul);color:#fff;border-radius:12px;padding:4px 10px;font-weight:700;white-space:nowrap}
+  .interp{background:var(--rosa-cl);border-radius:12px;padding:8px 12px;margin-top:10px;font-size:15px}
+  .item{margin-top:14px}
+  .item .titulo{font-weight:500}
+  .op-puntos .chip{font-size:15px}
+  .op-puntos .chip b{opacity:.7;margin-right:4px}
+  .sug{font-size:13px;color:var(--azul);margin-top:4px}
+  .foto-prot{display:grid;grid-template-columns:1fr;gap:6px}
+  .foto-prot .como{font-size:15px;color:var(--tinta);opacity:.85}
+  .devolucion{background:#fff;border-radius:var(--radio);padding:22px;box-shadow:var(--sombra);outline:none}
+  .devolucion h1{font-family:var(--serif);font-style:italic;font-size:26px;color:var(--azul);margin:0 0 4px}
+  .devolucion h2{font-size:18px;margin:18px 0 6px;color:var(--azul)}
+  .devolucion .meta{color:var(--gris);font-size:14px}
+  .devolucion .dev-cab{display:flex;gap:12px;align-items:center;border-bottom:2px solid var(--rosa-cl);padding-bottom:12px;margin-bottom:6px}
+  .devolucion .dev-cab .iso{--lc:var(--beige);--lq:var(--azul);--lf:var(--rosa);width:52px}
+  .devolucion .firma-dev{margin-top:22px;border-top:2px solid var(--rosa-cl);padding-top:10px;font-size:14px;color:var(--gris)}
+  .dictar{border:none;background:var(--rosa-cl);border-radius:999px;padding:6px 12px;font-size:14px;cursor:pointer;margin-top:6px}
+  .dictar.on{background:var(--rojo);color:#fff}
+  .transcripcion{background:var(--papel);border-radius:12px;padding:8px 12px;margin-top:6px;font-size:15px;white-space:pre-wrap}
+  .barra-guardar{position:sticky;bottom:0;background:rgba(247,243,239,.96);padding:10px 0;margin-top:14px}
+  @media print{
+    body{background:#fff}
+    .cabecera,.no-print,.barra-guardar,.fila-botones,#vista-lista,#vista-login{display:none!important}
+    .envoltura{padding:0;max-width:none}
+    .devolucion{box-shadow:none;padding:0}
+  }
+</style>
+</head>
+<body>
+<header class="cabecera">
+  <div class="envoltura ancha">
+    <div class="fila">
+      <div class="iso" id="iso"></div>
+      <div style="flex:1;min-width:0">
+        <h1 id="titulo">Panel de lactancia</h1>
+        <div class="sub" id="subtitulo">Solo para Ceci</div>
+      </div>
+      <button class="btn sec oculto" id="volver" style="min-height:44px;padding:8px 14px;font-size:15px">← Fichas</button>
+    </div>
+    <div class="tabs oculto" id="tabs" role="tablist"></div>
+  </div>
+</header>
+<main class="envoltura ancha" style="padding-bottom:60px">
+  <div id="aviso" class="destacado suave oculto" style="margin-top:16px;font-size:14px"></div>
+  <section id="vista-login" class="oculto">
+    <div class="tarjeta" style="margin-top:22px">
+      <div class="titulo" style="font-weight:700">Tu clave</div>
+      <p class="ayuda">La que te dio la instalación de Google. Queda guardada en este dispositivo.</p>
+      <input type="password" id="clave" inputmode="numeric" autocomplete="current-password" style="margin-top:10px">
+      <button class="btn prim" id="entrar" style="width:100%;margin-top:12px">Entrar</button>
+      <p class="error-txt" id="login-error"></p>
+    </div>
+  </section>
+  <section id="vista-lista" class="oculto"></section>
+  <section id="vista-detalle" class="oculto"></section>
+</main>
+<script src="config.js"></script>
+<script src="preguntas.js"></script>
+<script src="analisis.js"></script>
+<script src="evaluacion.js"></script>
+<script src="comun.js"></script>
+<script src="panel.js"></script>
+</body>
+</html>
