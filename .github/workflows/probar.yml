@@ -1,0 +1,15 @@
+name: probar-backend
+on:
+  push:
+    branches: [prueba-auto]
+  workflow_dispatch:
+jobs:
+  probar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - run: node prueba/probar.mjs
+        env:
+          SCRIPT_URL: https://script.google.com/macros/s/AKfycbxdr-0OYXz3cFLSp31y5F6HSs0OKfd030vsNpglnGpY6-x_YVLlDOa-QxF42yg-tNE/exec
