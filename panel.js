@@ -4,7 +4,7 @@
   const esc = C.esc;
   const $ = s => document.querySelector(s);
   const DEMO = !window.CONFIG.SCRIPT_URL;
-  const TABS = [['resumen', 'Resumen'], ['respuestas', 'Respuestas'], ['fotos', 'Fotos'], ['evaluacion', 'Evaluación'], ['devolucion', 'Devolución']];
+  const TABS = [['resumen', 'Resumen'], ['sesion', 'Sesión'], ['respuestas', 'Respuestas'], ['fotos', 'Fotos'], ['evaluacion', 'Evaluación'], ['devolucion', 'Devolución']];
   let clave = '';
   try { clave = localStorage.getItem('panel-clave') || ''; } catch (e) { }
   let actual = null, tab = 'resumen';
@@ -93,8 +93,62 @@
   function abrirTab() {
     $('#tabs').querySelectorAll('[data-tab]').forEach(b => b.setAttribute('aria-selected', b.dataset.tab === tab));
     const v = $('#vista-detalle');
-    ({ resumen: tabResumen, respuestas: tabRespuestas, fotos: tabFotos, evaluacion: tabEvaluacion, devolucion: tabDevolucion })[tab](v);
+    ({ resumen: tabResumen, sesion: tabSesion, respuestas: tabRespuestas, fotos: tabFotos, evaluacion: tabEvaluacion, devolucion: tabDevolucion })[tab](v);
     window.scrollTo(0, 0);
+  }
+  function irA(t, destino) {
+    tab = t; abrirTab();
+    if (!destino) return;
+    const el = document.querySelector(`[data-test="${destino}"]`) || (document.querySelector(`[data-grid="${destino}"]`) || {}).parentElement;
+    if (el && el.scrollIntoView) setTimeout(() => el.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60);
+  }
+
+  // ---------- Sesión: guía paso a paso para la consulta ----------
+  function pasosSesion() {
+    const r = actual.ficha, res = actual.res;
+    const t = (k, v) => (Array.isArray(r[k]) ? r[k] : [r[k]]).includes(v);
+    const mam = t('con_que', 'mamadera');
+    const fotosFam = actual.archivos.filter(a => a.clase === 'foto').length;
+    const animo = r.whooley1 === 'si' || r.whooley2 === 'si' || t('salud_diag', 'animo');
+    const aclarar = [];
+    if (t('pecho_signos', 'fiebre')) aclarar.push('¿Tiene fiebre o escalofríos HOY? Si sí, con pecho rojo o duro: consulta médica hoy (posible mastitis).');
+    if (r.meds_actual) aclarar.push(`Medicación actual: «${r.meds_actual.trim()}». Anotar nombre y dosis, y chequear en e-lactancia.org.`);
+    if (!(r.pesos || []).some(x => x.g)) aclarar.push('Pedir la libreta: copiar los pesos (nacimiento, alta, controles).');
+    if (r.frenillo === 'nada' || r.frenillo === 'no_se') aclarar.push('Nadie le revisó el frenillo todavía: contarle que hoy lo vamos a mirar.');
+    res.alarmas.filter(a => a.nivel === 'alta' && !/fiebre|Whooley/i.test(a.txt)).forEach(a => aclarar.push(a.txt));
+    const P = [];
+    P.push({ k: 'antes', t: 'Antes de que llegue', min: 5, items: ['Leer el Resumen y la pestaña Respuestas (2 min).', 'Balanza tarada, guantes, linterna (otro celu), toallita, almohadón.', 'Celu cargado y con espacio para fotos y video.'], ir: [['resumen', null, 'Ver resumen']] });
+    P.push({ k: 'escucha', t: 'Bienvenida y escucha', min: 10, items: ['Preguntar cómo llegan hoy y qué esperan de la consulta.', 'Validar lo que vienen haciendo antes de corregir nada.', ...aclarar], ir: [['respuestas', null, 'Ver respuestas']] });
+    P.push({ k: 'bebe', t: 'Bebé en calma: mirar y pesar', min: 10, items: ['Estado general: color, ictericia, tono, respiración, si está alerta o dormido.', 'Pesar sin ropa (o con pañal seco) y anotar el peso de hoy.', 'Si va a mamar ya: pesada ANTES de la toma.', 'Fotos en reposo: frente y los dos perfiles. Postura global desde arriba.'], ir: [['evaluacion', 'datos', 'Peso y pesadas'], ['fotos', 'frente_reposo', 'Fotos en reposo']] });
+    P.push({ k: 'pechos', t: 'Pecho y pezón antes de la toma', min: 5, items: ['Mirar piel del pezón (grietas, ampollas, blanqueo) y el pecho (lleno, zonas duras, rojo).', 'Preguntar dolor de 0 a 10 antes de empezar.'], ir: [['evaluacion', 'pechos', 'Pecho y pezón']] });
+    P.push({ k: 'toma', t: 'Toma observada', min: 20, items: ['Dejar que se acomode como siempre y recién después ayudar.', 'Observar postura, agarre, succión y deglución: marcar OMS, BBAT y LATCH.', 'Fotos: agarre de perfil y desde arriba. Video de 30 s de la succión.', 'Al soltar: foto del pezón de frente y de perfil (ya, antes de que se redondee).', 'Pesada DESPUÉS de la toma (misma ropa y pañal).', 'Probar un ajuste de posición o agarre y preguntar el dolor de nuevo.'], ir: [['evaluacion', 'obs', 'Observación OMS'], ['evaluacion', 'bbat', 'BBAT'], ['evaluacion', 'latch', 'LATCH'], ['fotos', 'agarre_perfil', 'Fotos del agarre']] });
+    P.push({ k: 'boca', t: 'Evaluación orofacial y frenillo', min: 15, items: ['Reflejos y succión no nutritiva con dedo enguantado.', 'Labios, paladar, Kotlow, tono, respiración, cuello (rotación a ambos lados).', 'En el llanto: posición y punta de la lengua, elevación. Maniobra de elevación para ver el frenillo.', 'Marcar Martinelli y BTAT.', 'Fotos: llanto, maniobra, protrusión, frenillo labial, paladar.'], ir: [['evaluacion', 'mof', 'Motricidad orofacial'], ['evaluacion', 'martinelli', 'Martinelli'], ['evaluacion', 'btat', 'BTAT'], ['fotos', 'llanto', 'Fotos de boca y lengua']] });
+    if (mam) P.push({ k: 'mamadera', t: 'Mamadera observada', min: 10, items: [`Ver la mamadera que usan${r.mam_marca ? ` (${r.mam_marca.trim()})` : ''} y el flujo de la tetina.`, 'Observar postura y ritmo. Si hace falta, mostrar alimentación pausada y más vertical.', 'Cuánto toma y en cuánto tiempo.'], ir: [['evaluacion', 'mamadera', 'Mamadera']] });
+    if (animo) P.push({ k: 'animo', t: 'Cómo está quien amamanta', min: 5, items: ['Preguntar con calma por el ánimo y el sueño. Pasar EPDS (Edimburgo) si hace falta.', 'Si corresponde, ofrecer derivación a salud mental perinatal (y anotarla en Derivaciones).'], ir: [['evaluacion', 'cierre', 'Derivaciones']] });
+    P.push({ k: 'plan', t: 'Plan y cierre', min: 10, items: ['Impresión en palabras simples.', 'Plan corto: 3 indicaciones como mucho, practicadas en la sesión.', 'Derivaciones si hacen falta y fecha del próximo control.', 'Tocar Guardar evaluación.'], ir: [['evaluacion', 'cierre', 'Conclusión y plan']] });
+    P.push({ k: 'despues', t: 'Después de la consulta', min: 10, items: ['Revisar el informe en Devolución, ajustar y guardar.', 'Mandarlo por WhatsApp (copiar) o en PDF.', fotosFam ? 'Revisar las fotos que mandó la familia.' : 'La familia no mandó fotos: ya quedan las tuyas en la pestaña Fotos.'], ir: [['devolucion', null, 'Ir a Devolución']] });
+    return P;
+  }
+  function tabSesion(v) {
+    const ev = actual.evaluacion; ev._sesion = ev._sesion || {};
+    const hechos = ev._sesion;
+    const P = pasosSesion();
+    const total = P.reduce((n, p) => n + p.items.length, 0);
+    const listos = () => Object.values(hechos).filter(Boolean).length;
+    let h = `<div class="destacado" style="margin-top:18px"><b>Guía de la sesión</b> · unos ${P.reduce((n, p) => n + p.min, 0)} min. Marcá cada paso a medida que lo hacés; los botones te llevan directo a la parte de la evaluación o la foto.<div class="ayuda" id="ses-prog" style="margin:6px 0 0"></div></div>`;
+    P.forEach((p, i) => {
+      h += `<div class="tarjeta"><div class="test-tit"><h3 style="font-size:17px">${i + 1}. ${esc(p.t)}</h3><span class="ayuda" style="margin:0">${p.min} min</span></div>`;
+      p.items.forEach((it, j) => { const k = `${p.k}.${j}`; h += `<label class="check" style="margin:10px 0"><input type="checkbox" data-ses="${k}" ${hechos[k] ? 'checked' : ''}><span>${esc(it)}</span></label>`; });
+      if (p.ir.length) h += `<div class="chips" style="margin-top:8px">${p.ir.map(([tb, d, txt]) => `<button type="button" class="chip" data-ir="${tb}" data-dest="${d || ''}">→ ${esc(txt)}</button>`).join('')}</div>`;
+      h += '</div>';
+    });
+    h += `<div class="barra-guardar no-print"><button class="btn prim" id="guardar-ev" style="width:100%">Guardar</button><p class="ayuda" id="ev-estado" style="text-align:center"></p></div>`;
+    v.innerHTML = h;
+    const prog = () => { $('#ses-prog').textContent = `${listos()} de ${total} pasos hechos`; };
+    v.querySelectorAll('[data-ses]').forEach(c => c.addEventListener('change', () => { hechos[c.dataset.ses] = c.checked; cambio(); prog(); }));
+    v.querySelectorAll('[data-ir]').forEach(b => b.addEventListener('click', () => irA(b.dataset.ir, b.dataset.dest)));
+    $('#guardar-ev').addEventListener('click', guardarEval);
+    prog();
   }
 
   // ---------- Archivos ----------
