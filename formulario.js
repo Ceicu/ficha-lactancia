@@ -266,7 +266,7 @@
       await alm.vaciar();
       gracias(false, fallidos);
     } catch (e) {
-      $('#envio-error').innerHTML = `No se pudo enviar. Revisá tu conexión y tocá <b>Reintentar</b>. Tus respuestas siguen guardadas en tu celular.`;
+      $('#envio-error').innerHTML = `No se pudo enviar. Revisá tu conexión y tocá <b>Reintentar</b>. Tus respuestas siguen guardadas en tu celular.<br><small style="opacity:.6">Detalle: ${C.esc(String((e && e.message) || e))}</small>`;
       $('#reintentar').classList.remove('oculto');
     }
   }
