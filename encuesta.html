@@ -65,6 +65,7 @@ const APRENDER = ['Videos cortos','En vivo, con otras mamás','Por WhatsApp','Ma
 const DIFICIL = ['Dolor o grietas','Sentir que no tenía suficiente leche','El agarre','Que el bebé no subía de peso','El cansancio','Los comentarios de la gente','Volver al trabajo','Nada, fue lindo','Otra cosa'];
 const P = {
   inicio:{tipo:'intro'},
+  pais:{tipo:'una',t:'¿Desde qué país respondés?',ops:['Paraguay','Argentina','Uruguay','Bolivia','Chile','Brasil','México','España','Estados Unidos','Otro país'],sig:'momento'},
   momento:{tipo:'una',t:'¿En qué momento estás?',ops:['Estoy embarazada','Ya tuve a mi bebé','Nunca estuve embarazada'],
     sig:v=>v==='Estoy embarazada'?'a_sem':v==='Ya tuve a mi bebé'?'b_edad':'c_cerca'},
   // Embarazadas
@@ -75,9 +76,11 @@ const P = {
     ops:['Cómo saber si se agarra bien','Si voy a tener suficiente leche','Cómo evitar el dolor','Qué pasa los primeros días','Posiciones para amamantar','Cómo me puede ayudar mi acompañante','Cómo seguir al volver al trabajo','Otra cosa'],sig:'a_pregunta'},
   a_pregunta:{tipo:'abierta',t:'Si pudieras hacerle una pregunta a una experta en lactancia, ¿cuál sería?',sig:'a_dicen'},
   a_dicen:{tipo:'abierta',t:'¿Qué te dicen los demás sobre la lactancia? ¿Algo te dejó pensando?',ayuda:'Si no querés, la podés saltar.',opcional:true,sig:'a_aprender'},
-  a_aprender:{tipo:'varias',t:'¿Cómo te gusta aprender?',ayuda:'Elegí todas las que quieras.',ops:APRENDER,sig:'a_justo'},
+  a_aprender:{tipo:'varias',t:'¿Cómo te gusta aprender?',ayuda:'Elegí todas las que quieras.',ops:APRENDER,sig:()=>R['¿Desde qué país respondés?']==='Paraguay'?'a_justo':'a_justo_usd'},
   a_justo:{tipo:'una',t:'Si existiera un acompañamiento corto antes del parto, ¿cuánto te parecería justo invertir?',
-    ops:['Hasta Gs. 150.000','Entre Gs. 150.000 y 250.000','Entre Gs. 250.000 y 350.000','Más de Gs. 350.000','Prefiero no decir'],sig:'aviso'},
+    ops:['Hasta Gs. 150.000','Entre Gs. 150.000 y 250.000','Entre Gs. 250.000 y 350.000','Más de Gs. 350.000','Prefiero no decir'],sig:'elegir'},
+  a_justo_usd:{tipo:'una',t:'Si existiera un acompañamiento corto antes del parto, ¿cuánto te parecería justo invertir? (en dólares)',
+    ops:['Hasta USD 20','Entre USD 20 y 35','Entre USD 35 y 50','Más de USD 50','Prefiero no decir'],sig:'elegir'},
   // Ya tuvo bebé
   b_edad:{tipo:'una',t:'¿Cuánto tiene tu bebé más chiquito?',ops:['Menos de 6 meses','De 6 meses a 1 año','De 1 a 2 años','Más de 2 años'],sig:'b_nota'},
   b_nota:{tipo:'escala',t:'Del 1 al 10, ¿cómo fue tu lactancia?',ext:['Muy difícil','Hermosa'],sig:'b_dificil'},
@@ -85,17 +88,22 @@ const P = {
   b_comentario:{tipo:'abierta',t:'¿Hubo algún comentario que te dolió o te hizo dudar?',ayuda:'Si no querés, la podés saltar.',opcional:true,sig:'b_yo'},
   b_yo:{tipo:'abierta',t:'Si pudieras hablarle a tu yo embarazada, ¿qué le dirías?',sig:'b_preparar'},
   b_preparar:{tipo:'una',t:'¿Te hubiera servido prepararte para la lactancia antes del parto?',ops:['Sí, mucho','Un poco','No'],sig:'b_aprender'},
-  b_aprender:{tipo:'varias',t:'¿Cómo te gusta aprender?',ayuda:'Elegí todas las que quieras.',ops:APRENDER,sig:'aviso'},
+  b_aprender:{tipo:'varias',t:'¿Cómo te gusta aprender?',ayuda:'Elegí todas las que quieras.',ops:APRENDER,sig:'elegir'},
   // Nunca embarazada
   c_cerca:{tipo:'una',t:'¿Alguien cercana a vos amamantó? Tu mamá, una hermana, una amiga…',ops:['Sí','No'],sig:v=>v==='Sí'?'c_nota':'c_embarazada'},
   c_nota:{tipo:'escala',t:'Del 1 al 10, ¿cómo creés que le fue?',ext:['Muy difícil','Hermosa'],sig:'c_dificil'},
   c_dificil:{tipo:'varias',t:'¿Qué creés que le costó más?',ayuda:'Elegí todas las que quieras.',ops:DIFICIL,sig:'c_mensaje'},
   c_mensaje:{tipo:'abierta',t:'¿Qué te gustaría que supiera toda mamá antes de amamantar?',opcional:true,sig:'c_embarazada'},
-  c_embarazada:{tipo:'una',t:'¿Conocés a alguien que esté embarazada ahora?',ops:['Sí','No'],sig:'aviso'},
+  c_embarazada:{tipo:'una',t:'¿Conocés a alguien que esté embarazada ahora?',ops:['Sí','No'],sig:'elegir'},
+  // Para todas
+  elegir:{tipo:'varias',max:3,t:'¿Qué haría que elijas un taller de lactancia y no otro?',ayuda:'Elegí las 3 que más te importan.',
+    ops:['Sentirme escuchada y contenida','Que sea cálido y divertido, que me haga reír','Poder expresarme sin sentirme juzgada','Una comunidad de mamás para seguir en contacto','Que esté basado en ciencia','La experiencia de la profe','El precio','Los horarios','Que me lo recomiende alguien de confianza'],sig:'sentir'},
+  sentir:{tipo:'abierta',t:'¿Cómo te gustaría sentirte al terminar un taller así?',ayuda:'Una palabra o una frase alcanza.',opcional:true,sig:'regalo'},
+  regalo:{tipo:'una',t:'Si existiera un vale de regalo para este taller (para un baby shower, por ejemplo), ¿te gustaría…?',ops:['Regalarlo','Recibirlo','Las dos cosas','No me interesa'],sig:'aviso'},
   aviso:{tipo:'aviso'},
   fin:{tipo:'fin'}
 };
-const TOTAL = 10;
+const TOTAL = 13;
 
 // ---------- Estado ----------
 const R = {}; const AUD = {}; const hist = []; let actual = 'inicio'; let datosAviso = {nombre:'',whatsapp:'',aviso:false};
@@ -122,7 +130,7 @@ function pintar() {
   } else if (p.tipo === 'varias') {
     const sel = (R[p.t] || '').split(' · ').filter(Boolean);
     const box = el('div', {class:'ops'});
-    p.ops.forEach(o => box.append(el('button', {class:'op' + (sel.includes(o) ? ' sel' : ''), onclick:() => { const i = sel.indexOf(o); i < 0 ? sel.push(o) : sel.splice(i, 1); R[p.t] = sel.join(' · '); pintar(); }}, o)));
+    p.ops.forEach(o => box.append(el('button', {class:'op' + (sel.includes(o) ? ' sel' : ''), onclick:() => { const i = sel.indexOf(o); if (i < 0 && p.max && sel.length >= p.max) return; i < 0 ? sel.push(o) : sel.splice(i, 1); R[p.t] = sel.join(' · '); pintar(); }}, o)));
     c.append(box);
   } else if (p.tipo === 'escala' || p.tipo === 'emoji') {
     const vals = p.tipo === 'emoji' ? ['😟','😕','😐','🙂','😍'] : ['1','2','3','4','5','6','7','8','9','10'];
@@ -184,7 +192,7 @@ function intro(c) {
     el('p', {class:'txt'}, 'Estoy armando un proyecto y tu experiencia me ayuda muchísimo.'),
     el('p', {class:'txt'}, 'Son unos 3 minutos. Podés responder tocando opciones, escribiendo o con un audio.'),
     el('p', {class:'txt', style:'font-size:15px;color:#6B7F99'}, 'No hace falta poner tu nombre. Lo que me cuentes lo uso solo para este proyecto.'),
-    el('div', {class:'pie'}, el('button', {class:'btn', onclick:() => ir('momento')}, 'Empezar')));
+    el('div', {class:'pie'}, el('button', {class:'btn', onclick:() => ir('pais')}, 'Empezar')));
 }
 function aviso(c) {
   c.append(el('h2', {}, '¡Ya casi! ¿Querés que te avise cuando esté listo?'), el('div', {class:'ayuda'}, 'Es opcional. Solo te escribo para eso.'));
