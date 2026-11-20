@@ -84,6 +84,9 @@ function tuteo(raiz) {
   while ((n = w.nextNode())) { let t = n.nodeValue; TU.forEach(([a, b]) => t = t.replace(a, b)); if (t !== n.nodeValue) n.nodeValue = t; }
   raiz.querySelectorAll('textarea').forEach(x => x.placeholder = x.placeholder.replace('Escribí', 'Escribe'));
 }
+const REG_RES = '📊 Los resultados de esta investigación, por WhatsApp';
+const REG_BEN = '💙 Un beneficio especial en lo que estoy preparando';
+const KREG = 'Para agradecerte, elegí tu regalo:';
 const P = {
   inicio:{tipo:'intro'},
   pais:{tipo:'una',t:'¿Desde qué país respondés?',ops:()=>Object.keys(PAISES),sig:'momento'},
@@ -118,7 +121,7 @@ const P = {
   elegir:{tipo:'varias',max:3,t:'¿Qué haría que elijas un taller de lactancia y no otro?',ayuda:'Elegí las 3 que más te importan.',
     ops:['Sentirme escuchada y contenida','Que sea cálido y divertido, que me haga reír','Poder expresarme sin sentirme juzgada','Una comunidad de mamás para seguir en contacto','Que esté basado en ciencia','La experiencia de la profe','El precio','Los horarios','Que me lo recomiende alguien de confianza'],sig:'sentir'},
   sentir:{tipo:'abierta',t:'¿Cómo te gustaría sentirte al terminar un taller así?',ayuda:'Una palabra o una frase alcanza.',opcional:true,sig:'regalo'},
-  regalo:{tipo:'una',t:'Si existiera un vale de regalo para este taller (para un baby shower, por ejemplo), ¿te gustaría…?',ops:['Regalarlo','Recibirlo','Las dos cosas','No me interesa'],sig:'aviso'},
+  regalo:{tipo:'una',t:'Para agradecerte, elegí tu regalo:',ops:[REG_RES,REG_BEN],sig:'aviso'},
   aviso:{tipo:'aviso'},
   fin:{tipo:'fin'}
 };
@@ -215,7 +218,8 @@ function intro(c) {
     el('div', {class:'pie'}, el('button', {class:'btn', onclick:() => { if (PAIS_LINK) R['¿Desde qué país respondés?'] = PAIS_LINK; ir(PAIS_LINK ? 'momento' : 'pais'); }}, 'Empezar')));
 }
 function aviso(c) {
-  c.append(el('h2', {}, '¡Ya casi! ¿Querés que te avise cuando esté listo?'), el('div', {class:'ayuda'}, 'Es opcional. Solo te escribo para eso.'));
+  const res = R[KREG] === REG_RES;
+  c.append(el('h2', {}, res ? '¡Ya casi! ¿A dónde te mando los resultados?' : '¡Ya casi! ¿Querés que te avise cuando esté listo?'), el('div', {class:'ayuda'}, res ? 'Te escribo solo para mandarte el resumen.' : 'Es opcional. Solo te escribo para eso.'));
   const n = el('input', {type:'text', placeholder:'Tu nombre'}); n.value = datosAviso.nombre;
   const w = el('input', {type:'tel', placeholder:'Tu WhatsApp (ej: 0981 123 456)', style:'margin-top:10px'}); w.value = datosAviso.whatsapp;
   const ch = el('input', {type:'checkbox'}); ch.checked = datosAviso.aviso;
@@ -225,6 +229,7 @@ function aviso(c) {
   enviarBtn.addEventListener('click', async () => {
     datosAviso = {nombre:n.value.trim(), whatsapp:w.value.trim(), aviso:ch.checked};
     if (datosAviso.aviso && !datosAviso.whatsapp) { err.textContent = 'Si querés el aviso, dejame tu WhatsApp.'; return; }
+    if (res && !datosAviso.whatsapp) { err.textContent = 'Dejame tu WhatsApp para mandarte los resultados.'; return; }
     enviarBtn.disabled = true; enviarBtn.textContent = 'Enviando…'; err.textContent = '';
     try { const r = await mandar(); ir('fin'); mostrarCodigo(r.codigo); }
     catch (e) { enviarBtn.disabled = false; enviarBtn.textContent = 'Enviar'; err.textContent = 'No se pudo enviar. Revisá tu conexión y probá de nuevo.'; }
@@ -237,10 +242,14 @@ function fin(c) {
   const d = el('div'); d.innerHTML = gota(90);
   const texto = encodeURIComponent('Hola 💙 Estoy ayudando a Ceci (fonoaudióloga y asesora de lactancia) con una encuesta corta para mamás y embarazadas. Son 3 minutos: ' + LINK);
   c.append(d, el('h1', {}, '¡Gracias de corazón! 💙'),
-    el('p', {class:'txt'}, 'Me ayudaste un montón. Este es tu código:'),
-    el('div', {class:'codigo'}, codigoFinal || '…'),
-    el('p', {class:'txt'}, 'Guardalo (sacale una captura 📸). Te da un beneficio especial en algo lindo que estoy preparando para las mamás.'),
-    el('p', {class:'txt', style:'font-size:14px;color:#6B7F99'}, 'Si no lo vas a usar, podés regalárselo a una amiga embarazada. Válido hasta el 31 de marzo de 2027, un código por persona y no acumulable con otras promociones.'),
+    ...(R[KREG] === REG_RES ? [
+      el('p', {class:'txt'}, 'Me ayudaste un montón. Cuando termine de analizar todas las respuestas, te mando por WhatsApp el resumen de esta investigación: qué viven las mamás con la lactancia y qué dice la evidencia.')
+    ] : [
+      el('p', {class:'txt'}, 'Me ayudaste un montón. Este es tu código:'),
+      el('div', {class:'codigo'}, codigoFinal || '…'),
+      el('p', {class:'txt'}, 'Guardalo (sacale una captura 📸). Te da un beneficio especial en algo lindo que estoy preparando para las mamás.'),
+      el('p', {class:'txt', style:'font-size:14px;color:#6B7F99'}, 'Si no lo vas a usar, podés regalárselo a una amiga embarazada. Válido hasta el 31 de marzo de 2027, un código por persona y no acumulable con otras promociones.')
+    ]),
     el('a', {class:'btn wa', href:'https://wa.me/?text=' + texto, target:'_blank'}, 'Compartir con una amiga'));
 }
 
@@ -261,9 +270,9 @@ async function mandar() {
   const respuestas = {}; for (const k in R) respuestas[k] = R[k];
   for (const k in AUD) respuestas[k] = (respuestas[k] ? respuestas[k] + ' ' : '') + '[🎙 audio]';
   const nombre = datosAviso.nombre || 'Anónima';
-  const ficha = {tipo:'encuesta', nacio:'si', bebe_nombre:'📝 Encuesta · ' + codigo, quien_nombre:nombre, whatsapp:datosAviso.whatsapp || '', quiere_aviso:datosAviso.aviso ? 'sí' : 'no', codigo, respuestas};
+  const ficha = {tipo:'encuesta', nacio:'si', bebe_nombre:'📝 Encuesta · ' + codigo, quien_nombre:nombre, whatsapp:datosAviso.whatsapp || '', quiere_aviso:datosAviso.aviso ? 'sí' : 'no', regalo:R[KREG] === REG_RES ? 'resultados' : 'beneficio', codigo, respuestas};
   const lineas = Object.keys(respuestas).map(k => k + '\n→ ' + respuestas[k]);
-  const texto = 'Encuesta para mamás · código ' + codigo + (datosAviso.aviso ? ' · quiere aviso' : '') + '\n\n' + lineas.join('\n\n');
+  const texto = 'Encuesta para mamás · código ' + codigo + (R[KREG] === REG_RES ? ' · quiere los resultados' : '') + (datosAviso.aviso ? ' · quiere aviso' : '') + '\n\n' + lineas.join('\n\n');
   const html = '<h3>Encuesta para mamás · ' + codigo + '</h3>' + Object.keys(respuestas).map(k => '<p><b>' + escH(k) + '</b><br>' + escH(respuestas[k]) + '</p>').join('');
   const url = (window.CONFIG || {}).SCRIPT_URL;
   if (!url) { console.log('Modo prueba:', ficha); return {codigo}; }
