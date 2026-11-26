@@ -46,7 +46,7 @@
           o('dolor', 'Dolor o grietas'), o('agarre', 'El agarre'), o('peso', 'Sube poco de peso'),
           o('produccion', 'Siento que tengo poca leche'), o('exceso', 'Tengo demasiada leche'),
           o('tomas', 'Tomas muy largas o muy seguidas'), o('llanto', 'Llora mucho, gases o cólicos'),
-          o('mamadera_pecho', 'Pasar de mamadera a pecho'), o('extraccion', 'Extracción o vuelta al trabajo'),
+          o('mamadera_pecho', 'Pasar de mamadera a pecho'), o('acepte_mamadera', 'Que acepte la mamadera'), o('extraccion', 'Extracción o vuelta al trabajo'),
           o('frenillo', 'Frenillo'), o('destete', 'Destete'), o('otro', 'Otra cosa')] },
         { id: 'motivo_txt', tipo: 'texto', t: 'Contame con tus palabras qué te preocupa', req: true },
         { id: 'desde', tipo: 'una', t: '¿Desde cuándo?', si: nacio, opciones: [

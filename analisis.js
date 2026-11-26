@@ -205,7 +205,7 @@
     st(r.pechos_despues === 'no' || r.pechos_despues === 'no_noto', 'pechos sin cambio después de la toma');
     st(r.despues_toma === 'pide' || r.despues_toma === 'llora', 'no queda satisfecho');
     st(alarmas.some(a => /peso|g\/día/.test(a.txt)), 'peso por debajo de lo esperado');
-    st(r.pis === 'm4' || r.pis === '4_5' || r.caca === 'ninguno' || r.caca === '1_2', 'pocos pañales');
+    st(r.pis === 'm4' || r.pis === '4_5' || ((r.caca === 'ninguno' || r.caca === '1_2') && (edad == null || edad < 42)), 'pocos pañales');
 
     if (sTransf.length >= 3) hip.push({ titulo: 'Transferencia de leche ineficaz', porque: sTransf.join(', ') });
     if (sFren.length >= 3 || r.frenillo === 'tiene') {

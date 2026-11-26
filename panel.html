@@ -51,6 +51,46 @@
   .dictar.on{background:var(--rojo);color:#fff}
   .transcripcion{background:var(--papel);border-radius:12px;padding:8px 12px;margin-top:6px;font-size:15px;white-space:pre-wrap}
   .barra-guardar{position:sticky;bottom:0;background:rgba(247,243,239,.96);padding:10px 0;margin-top:14px}
+  /* Consulta: protocolo al lado de la ficha, pensado para usar con guantes */
+  body.modo-consulta .envoltura.ancha{max-width:1440px}
+  .consulta{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:18px;margin-top:16px;align-items:start}
+  .consulta .lado{position:sticky;top:8px;max-height:calc(100vh - 16px);overflow:auto;margin:0}
+  .consulta-movil{display:none;gap:8px;margin-top:14px}
+  .consulta-movil .chip{flex:1;text-align:center;min-height:52px}
+  .seg{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+  .seg .chip{min-height:44px;font-size:15px;padding:8px 14px}
+  .pasos-nav{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+  .pasos-nav .chip{min-height:46px;font-size:15px;padding:8px 12px}
+  .pasos-nav .chip.listo{border-color:var(--verde);color:var(--verde)}
+  .pasos-nav .chip.listo[aria-pressed=true]{background:var(--verde);color:#fff}
+  .paso h2{margin:0;font-size:22px}
+  .paso h4{margin:20px 0 6px;font-size:16px;color:var(--azul);text-transform:uppercase;letter-spacing:.03em}
+  .paso h5{margin:14px 0 0;font-size:15px;color:var(--gris)}
+  .paso .chip{min-height:54px;font-size:17px;padding:12px 18px}
+  .paso .check.grande{padding:10px 12px;margin:6px 0;border-radius:12px;background:var(--papel);align-items:center;min-height:54px}
+  .paso .check.grande input{width:30px;height:30px;margin:0}
+  .paso .check.grande:has(input:checked){background:#e7efe9}
+  .paso .check.grande:has(input:checked) span{color:var(--gris)}
+  .paso .tener{margin:0;padding-left:20px}
+  .paso .tener li{margin:4px 0}
+  .sub-test{display:flex;justify-content:space-between;align-items:center;gap:8px;margin:18px 0 0;padding-top:12px;border-top:1px solid var(--gris-cl);font-weight:700}
+  .fotos-cons{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px}
+  .foto-cons{background:var(--papel);border-radius:12px;padding:10px}
+  .foto-cons.ya{background:#e7efe9}
+  .foto-cons .ayuda{font-size:13px}
+  .foto-cons .boton-subir{padding:12px;min-height:54px}
+  .barra-consulta{position:sticky;bottom:0;display:flex;gap:8px;background:rgba(247,243,239,.96);padding:10px 0}
+  .barra-consulta .btn{flex:1;min-height:60px;font-size:18px}
+  .barra-consulta #guardar-ev{flex:.6}
+  .paso .dictar{min-height:50px;font-size:16px;padding:10px 18px}
+  body.modo-consulta :focus-visible{outline:4px solid var(--rosa);outline-offset:2px}
+  @media (max-width:999px){
+    .consulta{grid-template-columns:1fr}
+    .consulta .lado{position:static;max-height:none}
+    .consulta-movil{display:flex}
+    .consulta[data-col=proto] .lado,.consulta[data-col=lado] .proto{display:none}
+    .barra-consulta .btn{font-size:16px;padding:10px 6px}
+  }
   @media print{
     body{background:#fff}
     .cabecera,.no-print,.barra-guardar,.fila-botones,#vista-lista,#vista-login{display:none!important}

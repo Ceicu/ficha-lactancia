@@ -4,7 +4,7 @@
   const esc = C.esc;
   const $ = s => document.querySelector(s);
   const DEMO = !window.CONFIG.SCRIPT_URL;
-  const TABS = [['resumen', 'Resumen'], ['sesion', 'Sesión'], ['respuestas', 'Respuestas'], ['fotos', 'Fotos'], ['evaluacion', 'Evaluación'], ['devolucion', 'Devolución']];
+  const TABS = [['resumen', 'Resumen'], ['consulta', '🩺 Consulta'], ['respuestas', 'Respuestas'], ['fotos', 'Fotos'], ['evaluacion', 'Evaluación'], ['devolucion', 'Devolución']];
   let clave = '';
   try { clave = localStorage.getItem('panel-clave') || ''; } catch (e) { }
   let actual = null, tab = 'resumen';
@@ -93,7 +93,8 @@
   function abrirTab() {
     $('#tabs').querySelectorAll('[data-tab]').forEach(b => b.setAttribute('aria-selected', b.dataset.tab === tab));
     const v = $('#vista-detalle');
-    ({ resumen: tabResumen, sesion: tabSesion, respuestas: tabRespuestas, fotos: tabFotos, evaluacion: tabEvaluacion, devolucion: tabDevolucion })[tab](v);
+    document.body.classList.toggle('modo-consulta', tab === 'consulta');
+    ({ resumen: tabResumen, consulta: tabConsulta, respuestas: tabRespuestas, fotos: tabFotos, evaluacion: tabEvaluacion, devolucion: tabDevolucion })[tab](v);
     window.scrollTo(0, 0);
   }
   function irA(t, destino) {
@@ -103,52 +104,349 @@
     if (el && el.scrollIntoView) setTimeout(() => el.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60);
   }
 
-  // ---------- Sesión: guía paso a paso para la consulta ----------
-  function pasosSesion() {
+  // ---------- Consulta: protocolo paso a paso al lado de la ficha ----------
+  const tieneR = (r, k, v) => (Array.isArray(r[k]) ? r[k] : [r[k]]).includes(v);
+  const vacioTxt = s => !s || /^\s*(no|nada|nada a[úu]n|nada todav[íi]a|ninguno|ninguna|ahora nada|no tomo nada|-)\s*\.?\s*$/i.test(s);
+  function pasosConsulta() {
     const r = actual.ficha, res = actual.res;
-    const t = (k, v) => (Array.isArray(r[k]) ? r[k] : [r[k]]).includes(v);
-    const mam = t('con_que', 'mamadera');
-    const fotosFam = actual.archivos.filter(a => a.clase === 'foto').length;
+    const t = (k, v) => tieneR(r, k, v);
+    const lbl = (k, v) => A.etiqueta(k, v);
+    const mam = t('con_que', 'mamadera') || t('motivo_chips', 'acepte_mamadera') || t('motivo_chips', 'mamadera_pecho') || t('motivo_chips', 'extraccion') || ['extraida', 'mixta'].includes(r.objetivo);
     const animo = r.whooley1 === 'si' || r.whooley2 === 'si' || t('salud_diag', 'animo');
-    const aclarar = [];
-    if (t('pecho_signos', 'fiebre')) aclarar.push('¿Tiene fiebre o escalofríos HOY? Si sí, con pecho rojo o duro: consulta médica hoy (posible mastitis).');
-    if (r.meds_actual) aclarar.push(`Medicación actual: «${r.meds_actual.trim()}». Anotar nombre y dosis, y chequear en e-lactancia.org.`);
-    if (!(r.pesos || []).some(x => x.g)) aclarar.push('Pedir la libreta: copiar los pesos (nacimiento, alta, controles).');
-    if (r.frenillo === 'nada' || r.frenillo === 'no_se') aclarar.push('Nadie le revisó el frenillo todavía: contarle que hoy lo vamos a mirar.');
-    res.alarmas.filter(a => a.nivel === 'alta' && !/fiebre|Whooley/i.test(a.txt)).forEach(a => aclarar.push(a.txt));
+    const pesos = A.pesosOrdenados(r);
+    const ult = pesos[pesos.length - 1];
     const P = [];
-    P.push({ k: 'antes', t: 'Antes de que llegue', min: 5, items: ['Leer el Resumen y la pestaña Respuestas (2 min).', 'Balanza tarada, guantes, linterna (otro celu), toallita, almohadón.', 'Celu cargado y con espacio para fotos y video.'], ir: [['resumen', null, 'Ver resumen']] });
-    P.push({ k: 'escucha', t: 'Bienvenida y escucha', min: 10, items: ['Preguntar cómo llegan hoy y qué esperan de la consulta.', 'Validar lo que vienen haciendo antes de corregir nada.', ...aclarar], ir: [['respuestas', null, 'Ver respuestas']] });
-    P.push({ k: 'bebe', t: 'Bebé en calma: mirar y pesar', min: 10, items: ['Estado general: color, ictericia, tono, respiración, si está alerta o dormido.', 'Pesar sin ropa (o con pañal seco) y anotar el peso de hoy.', 'Si va a mamar ya: pesada ANTES de la toma.', 'Fotos en reposo: frente y los dos perfiles. Postura global desde arriba.'], ir: [['evaluacion', 'datos', 'Peso y pesadas'], ['fotos', 'frente_reposo', 'Fotos en reposo']] });
-    P.push({ k: 'pechos', t: 'Pecho y pezón antes de la toma', min: 5, items: ['Mirar piel del pezón (grietas, ampollas, blanqueo) y el pecho (lleno, zonas duras, rojo).', 'Preguntar dolor de 0 a 10 antes de empezar.'], ir: [['evaluacion', 'pechos', 'Pecho y pezón']] });
-    P.push({ k: 'toma', t: 'Toma observada', min: 20, items: ['Dejar que se acomode como siempre y recién después ayudar.', 'Observar postura, agarre, succión y deglución: marcar OMS, BBAT y LATCH.', 'Fotos: agarre de perfil y desde arriba. Video de 30 s de la succión.', 'Al soltar: foto del pezón de frente y de perfil (ya, antes de que se redondee).', 'Pesada DESPUÉS de la toma (misma ropa y pañal).', 'Probar un ajuste de posición o agarre y preguntar el dolor de nuevo.'], ir: [['evaluacion', 'obs', 'Observación OMS'], ['evaluacion', 'bbat', 'BBAT'], ['evaluacion', 'latch', 'LATCH'], ['fotos', 'agarre_perfil', 'Fotos del agarre']] });
-    P.push({ k: 'boca', t: 'Evaluación orofacial y frenillo', min: 15, items: ['Reflejos y succión no nutritiva con dedo enguantado.', 'Labios, paladar, Kotlow, tono, respiración, cuello (rotación a ambos lados).', 'En el llanto: posición y punta de la lengua, elevación. Maniobra de elevación para ver el frenillo.', 'Marcar Martinelli y BTAT.', 'Fotos: llanto, maniobra, protrusión, frenillo labial, paladar.'], ir: [['evaluacion', 'mof', 'Motricidad orofacial'], ['evaluacion', 'martinelli', 'Martinelli'], ['evaluacion', 'btat', 'BTAT'], ['fotos', 'llanto', 'Fotos de boca y lengua']] });
-    if (mam) P.push({ k: 'mamadera', t: 'Mamadera observada', min: 10, items: [`Ver la mamadera que usan${r.mam_marca ? ` (${r.mam_marca.trim()})` : ''} y el flujo de la tetina.`, 'Observar postura y ritmo. Si hace falta, mostrar alimentación pausada y más vertical.', 'Cuánto toma y en cuánto tiempo.'], ir: [['evaluacion', 'mamadera', 'Mamadera']] });
-    if (animo) P.push({ k: 'animo', t: 'Cómo está quien amamanta', min: 5, items: ['Preguntar con calma por el ánimo y el sueño. Pasar EPDS (Edimburgo) si hace falta.', 'Si corresponde, ofrecer derivación a salud mental perinatal (y anotarla en Derivaciones).'], ir: [['evaluacion', 'cierre', 'Derivaciones']] });
-    P.push({ k: 'plan', t: 'Plan y cierre', min: 10, items: ['Impresión en palabras simples.', 'Plan corto: 3 indicaciones como mucho, practicadas en la sesión.', 'Derivaciones si hacen falta y fecha del próximo control.', 'Tocar Guardar evaluación.'], ir: [['evaluacion', 'cierre', 'Conclusión y plan']] });
-    P.push({ k: 'despues', t: 'Después de la consulta', min: 10, items: ['Revisar el informe en Devolución, ajustar y guardar.', 'Mandarlo por WhatsApp (copiar) o en PDF.', fotosFam ? 'Revisar las fotos que mandó la familia.' : 'La familia no mandó fotos: ya quedan las tuyas en la pestaña Fotos.'], ir: [['devolucion', null, 'Ir a Devolución']] });
+
+    // 1. Preparación
+    P.push({
+      k: 'prep', t: 'Antes de empezar', corto: 'Preparar', min: 5,
+      preguntar: [],
+      hacer: ['Leer «Lo clave» de la ficha (columna de la izquierda).', 'Balanza tarada, guantes, linterna (otro celu), toallita, almohadón.', 'Celu o tablet cargado, con espacio para fotos y video.', 'Lavado de manos y guantes puestos.'],
+      tener: ['Con guantes: tocá la pantalla con el nudillo, o usá el teclado de la compu (Tab para moverte, Espacio para marcar, flechas ← → para cambiar de paso).', 'Para escribir sin tocar nada: 🎙️ Dictar en las notas.'],
+      evaluar: [['datos', ['fecha', 'modalidad']]], fotos: [],
+    });
+
+    // 2. Entrevista
+    const preg = ['¿Cómo llegan hoy? ¿Cambió algo desde que completaron la ficha?', '¿Qué les gustaría llevarse de esta consulta?', 'Pañales de las últimas 24 h: cuántos pis y cuántas cacas.', '¿Cuántas tomas hubo ayer y cómo fue la noche?'];
+    if (t('pecho_signos', 'fiebre')) preg.unshift('⚠️ ¿Tiene fiebre o escalofríos HOY? Si sí, con pecho rojo o duro: consulta médica hoy (posible mastitis).');
+    if (!vacioTxt(r.meds_actual)) preg.push(`Medicación actual: «${r.meds_actual.trim()}». Anotar nombre y dosis, y chequear en e-lactancia.org.`);
+    if (!pesos.length) preg.push('Pedir la libreta y copiar los pesos (nacimiento, alta, controles).');
+    if (r.frenillo === 'nada' || r.frenillo === 'no_se') preg.push('Nadie le revisó el frenillo todavía: contarle que hoy lo vamos a mirar.');
+    if (r.frenillo === 'cortado') preg.push(`Frenillo ya cortado${r.frenillo_det ? ` (${r.frenillo_det.trim()})` : ''}: ¿cuándo fue, qué cambió después y si hicieron ejercicios?`);
+    if (r.extrae && r.extrae !== 'no') preg.push(`Extracción: cuándo, cuánto y para qué${r.embudo ? ` (embudo de ${r.embudo} mm: chequear el tamaño)` : ''}.`);
+    if (r.trabajo === 'ya' || r.trabajo === 'pronto') preg.push(`Trabajo (${lbl('trabajo', r.trabajo).toLowerCase()}): cuántas horas está fuera y quién le da de comer mientras.`);
+    const noSe = [];
+    F.SECCIONES.forEach(s => { if (s.si && !s.si(r)) return; s.preguntas.forEach(p => { if ((!p.si || p.si(r)) && r[p.id] === 'no_se') noSe.push(p.t); }); });
+    noSe.slice(0, 5).forEach(q => preg.push(`Respondió «no sé»: ${q}`));
+    res.alarmas.filter(a => a.nivel === 'alta' && !/fiebre|Whooley/i.test(a.txt)).forEach(a => preg.push('⚠️ ' + a.txt));
+    const tenerE = ['Escuchar primero y validar todo lo que viene haciendo, antes de corregir nada.'];
+    if (r.objetivo) tenerE.push(`Su objetivo: ${lbl('objetivo', r.objetivo).toLowerCase()}. El plan se arma alrededor de eso.`);
+    if (!vacioTxt(r.miedos)) tenerE.push(`Su miedo, con sus palabras: «${r.miedos.trim()}»`);
+    if (!vacioTxt(r.que_probaste)) tenerE.push(`Ya probaron: «${r.que_probaste.trim()}»`);
+    if (!vacioTxt(r.que_dijeron)) tenerE.push(`Le dijeron: «${r.que_dijeron.trim()}»`);
+    if (r.lact_previa_txt) tenerE.push(`Lactancia anterior: «${r.lact_previa_txt.trim()}»`);
+    P.push({ k: 'entrevista', t: 'Bienvenida y entrevista', corto: 'Entrevista', min: 10, preguntar: preg, tener: tenerE, evaluar: [], fotos: [] });
+
+    // 3. Bebé en calma
+    const tenerB = ['Pesar sin ropa (o con pañal seco), siempre en la misma balanza tarada.'];
+    if (ult) tenerB.push(`Último peso de la ficha: ${ult.g.toLocaleString('es-PY')} g (${A.fmtFecha(ult.f)}).`);
+    if (r.peso_nac) tenerB.push(`Peso al nacer: ${Number(r.peso_nac).toLocaleString('es-PY')} g.`);
+    if (r.cabeza_lado === 'si') tenerB.push('La familia nota que gira la cabeza siempre hacia un lado: mirar rotación e inclinación a ambos lados.');
+    if (r.boca_abierta === 'si' || r.ronca === 'si' || r.ronca === 'aveces') tenerB.push('Contaron boca abierta en reposo o ronquidos: mirar respiración nasal.');
+    P.push({ k: 'bebe', t: 'Bebé en calma: mirar y pesar', corto: 'Bebé', min: 10, calcPeso: true,
+      preguntar: ['¿Cuándo fue el último control con pediatra y qué peso le dio?'],
+      hacer: ['Estado general: color, ictericia, tono, respiración, si está alerta o dormido.'],
+      tener: tenerB,
+      evaluar: [['datos', ['peso_hoy']], ['mof', ['tono', 'respiracion', 'cuello']], ['martinelli', ['a1']]],
+      fotos: ['frente_reposo', 'perfil_der', 'perfil_izq', 'postura'] });
+
+    // 4. Pecho y pezón
+    const tenerP = [];
+    if (r.dolor != null && r.dolor !== '') tenerP.push(`En la ficha marcó dolor ${r.dolor}/10${r.dolor_cuando && r.dolor_cuando.length ? ' (' + lbl('dolor_cuando', r.dolor_cuando).toLowerCase() + ')' : ''}.`);
+    if (r.pecho_signos && r.pecho_signos.length && !t('pecho_signos', 'nada')) tenerP.push(`Marcó en el pecho: ${lbl('pecho_signos', r.pecho_signos).toLowerCase()}.`);
+    if (r.pechos_cambios === 'pocos' || r.pechos_cambios === 'no') tenerP.push('Pocos cambios en los pechos en el embarazo: mirar forma y tejido mamario (riesgo de baja producción).');
+    if (r.cirugia_mamaria && r.cirugia_mamaria.length && !t('cirugia_mamaria', 'ninguna')) tenerP.push(`Cirugía mamaria: ${lbl('cirugia_mamaria', r.cirugia_mamaria).toLowerCase()}.`);
+    if (t('salud_diag', 'sop')) tenerP.push('Tiene SOP: tenerlo en cuenta para la producción.');
+    P.push({ k: 'pecho', t: 'Pecho y pezón, antes de la toma', corto: 'Pecho', min: 5,
+      preguntar: ['Dolor ahora, de 0 a 10.', '¿Algún pecho más duro, rojo o doloroso?'],
+      tener: tenerP,
+      evaluar: [['pechos', ['pezon_d', 'pezon_i', 'piel', 'mama']]], fotos: [] });
+
+    // 5. Toma observada
+    const tenerT = ['Dejar que se acomode como siempre los primeros minutos; recién después ayudar.', 'Pesada antes y después con la misma ropa y el mismo pañal.'];
+    if (r.toma_nota && r.toma_nota.length) tenerT.push(`En la toma la familia nota: ${lbl('toma_nota', r.toma_nota).toLowerCase()}.`);
+    if (r.duracion) tenerT.push(`Duración que contó: ${lbl('duracion', r.duracion).toLowerCase()}.`);
+    P.push({ k: 'toma', t: 'Toma observada', corto: 'Toma', min: 20,
+      preguntar: ['Después de ajustar posición o agarre: ¿cuánto duele ahora, de 0 a 10?'],
+      tener: tenerT,
+      evaluar: [['datos', ['pre']], ['obs', ['postura', 'agarre', 'succion', 'pecho']], ['latch', null], ['bbat', null], ['pechos', ['al_soltar']], ['datos', ['post']], ['obs', ['notas']]],
+      puntajes: ['datos', 'latch', 'bbat'],
+      fotos: ['agarre_perfil', 'agarre_arriba', 'pezon_frente', 'pezon_perfil', 'video_toma'] });
+
+    // 6. Boca y frenillo
+    const tenerO = ['Guantes nuevos antes de lo intraoral.', 'Lengua y frenillo: en el llanto y con la maniobra de elevación (índices en los bordes laterales de la lengua, elevar y llevar hacia atrás).'];
+    if (r.frenillo === 'cortado') tenerO.push(`Ya le cortaron el frenillo${r.frenillo_det ? ` (${r.frenillo_det.trim()})` : ''}: mirar cicatriz, posible reinserción y movilidad. Si sigue con chasquidos, buscar compensaciones.`);
+    if (Object.keys(E.prefillMartinelli(r)).length) tenerO.push('La historia de Martinelli ya viene sugerida desde la ficha: tocá «usar las sugerencias».');
+    P.push({ k: 'boca', t: 'Evaluación orofacial y frenillo', corto: 'Boca', min: 15,
+      preguntar: [],
+      tener: tenerO,
+      evaluar: [['mof', ['busqueda', 'succion_ref', 'mordida', 'nausea', 'snn', 'labios', 'kotlow', 'paladar', 'mandibula', 'lengua_reposo']], ['martinelli', null], ['btat', null], ['mof', ['notas']]],
+      puntajes: ['martinelli', 'btat'],
+      fotos: ['llanto', 'maniobra', 'protrusion', 'labial', 'paladar'] });
+
+    // 7. Mamadera
+    if (mam) {
+      const pregM = ['¿Quién le da la mamadera y en qué momento del día?', '¿Qué pasa cuando se la ofrecen: llora, juega con la tetina, la escupe, se atraganta?', '¿Qué mamaderas y tetinas probaron, con qué leche y a qué temperatura?'];
+      const tenerM = ['Sin forzar ni demonizar: que la ofrezca otra persona, con el bebé tranquilo y sin mucha hambre.', 'Tetina de flujo lento, más vertical y con pausas (alimentación a ritmo).', 'Si no la acepta, vaso, cucharita o vaso de transición también sirven.'];
+      if (r.mam_marca) tenerM.unshift(`Usan: ${r.mam_marca.trim()}${r.tetina_flujo ? ', flujo ' + lbl('tetina_flujo', r.tetina_flujo).toLowerCase() : ''}.`);
+      P.push({ k: 'mamadera', t: 'Mamadera observada', corto: 'Mamadera', min: 10, preguntar: pregM, tener: tenerM, evaluar: [['mamadera', null]], fotos: [] });
+    }
+
+    // 8. Ánimo
+    if (animo) P.push({ k: 'animo', t: 'Cómo está quien amamanta', corto: 'Ánimo', min: 5,
+      preguntar: ['¿Cómo estás durmiendo? ¿Cómo te sentís estos días?', 'En las últimas 2 semanas, ¿te sentiste triste o sin ganas de hacer cosas que te gustaban?', '¿Con quién compartís los cuidados? ¿Quién te ayuda?', 'Pasar la escala de Edimburgo (EPDS) si hace falta.'],
+      tener: ['Preguntar con calma y sin apuro; validar.', 'Si aparece riesgo (ideas de hacerse daño), la consulta no termina sin un contacto de ayuda y una derivación.'],
+      evaluar: [['cierre', ['derivaciones']]], fotos: [] });
+
+    // 9. Plan y cierre
+    P.push({ k: 'plan', t: 'Plan y cierre', corto: 'Plan', min: 10,
+      preguntar: ['¿Quedó alguna duda? ¿Qué te llevás para hacer hoy?'],
+      tener: ['Contar lo que viste con palabras simples.', '3 indicaciones como mucho, y que las practique en la sesión.', 'Acordar el próximo control.'],
+      evaluar: [['cierre', ['impresion', 'indicaciones', 'indicaciones_txt', 'derivaciones', 'proximo']]], fotos: [] });
+
+    // 10. Después
+    P.push({ k: 'despues', t: 'Después de la consulta', corto: 'Después', min: 5,
+      hacer: ['Revisar el informe (columna de la izquierda → Informe).', 'Mandar la devolución por WhatsApp o en PDF.', 'Agendar el próximo control.'],
+      tener: [], evaluar: [], fotos: [] });
+    P.forEach(p => { p.preguntar = p.preguntar || []; p.hacer = p.hacer || []; });
     return P;
   }
-  function tabSesion(v) {
-    const ev = actual.evaluacion; ev._sesion = ev._sesion || {};
-    const hechos = ev._sesion;
-    const P = pasosSesion();
-    const total = P.reduce((n, p) => n + p.items.length, 0);
-    const listos = () => Object.values(hechos).filter(Boolean).length;
-    let h = `<div class="destacado" style="margin-top:18px"><b>Guía de la sesión</b> · unos ${P.reduce((n, p) => n + p.min, 0)} min. Marcá cada paso a medida que lo hacés; los botones te llevan directo a la parte de la evaluación o la foto.<div class="ayuda" id="ses-prog" style="margin:6px 0 0"></div></div>`;
-    P.forEach((p, i) => {
-      h += `<div class="tarjeta"><div class="test-tit"><h3 style="font-size:17px">${i + 1}. ${esc(p.t)}</h3><span class="ayuda" style="margin:0">${p.min} min</span></div>`;
-      p.items.forEach((it, j) => { const k = `${p.k}.${j}`; h += `<label class="check" style="margin:10px 0"><input type="checkbox" data-ses="${k}" ${hechos[k] ? 'checked' : ''}><span>${esc(it)}</span></label>`; });
-      if (p.ir.length) h += `<div class="chips" style="margin-top:8px">${p.ir.map(([tb, d, txt]) => `<button type="button" class="chip" data-ir="${tb}" data-dest="${d || ''}">→ ${esc(txt)}</button>`).join('')}</div>`;
-      h += '</div>';
-    });
-    h += `<div class="barra-guardar no-print"><button class="btn prim" id="guardar-ev" style="width:100%">Guardar</button><p class="ayuda" id="ev-estado" style="text-align:center"></p></div>`;
-    v.innerHTML = h;
-    const prog = () => { $('#ses-prog').textContent = `${listos()} de ${total} pasos hechos`; };
-    v.querySelectorAll('[data-ses]').forEach(c => c.addEventListener('change', () => { hechos[c.dataset.ses] = c.checked; cambio(); prog(); }));
-    v.querySelectorAll('[data-ir]').forEach(b => b.addEventListener('click', () => irA(b.dataset.ir, b.dataset.dest)));
-    $('#guardar-ev').addEventListener('click', guardarEval);
-    prog();
+
+  let consultaTeclas = null, informeTimer = null;
+  function tabConsulta(v) {
+    const ev = actual.evaluacion;
+    ev._consulta = ev._consulta || {};
+    const cs = ev._consulta; cs.checks = cs.checks || {}; cs.paso = cs.paso || 0;
+    ev.datos = ev.datos || {};
+    if (!ev.datos.fecha) ev.datos.fecha = new Date().toISOString().slice(0, 10);
+    if (!ev.datos.modalidad && ['consultorio', 'domicilio', 'online'].includes(actual.ficha.modalidad)) ev.datos.modalidad = actual.ficha.modalidad;
+    const P = pasosConsulta();
+    if (cs.paso >= P.length) cs.paso = 0;
+    document.body.classList.add('modo-consulta');
+    v.innerHTML = `<div class="consulta-movil no-print" role="tablist">
+        <button class="chip" data-col="proto" aria-pressed="true">📋 Protocolo</button>
+        <button class="chip" data-col="lado" aria-pressed="false">📄 Ficha e informe</button></div>
+      <div class="consulta" data-col="proto">
+        <aside class="lado tarjeta" id="cons-lado"></aside>
+        <section class="proto" id="cons-proto"></section>
+      </div>`;
+    const cont = v.querySelector('.consulta');
+    v.querySelectorAll('[data-col]').forEach(b => b.tagName === 'BUTTON' && b.addEventListener('click', () => {
+      cont.dataset.col = b.dataset.col;
+      v.querySelectorAll('button[data-col]').forEach(x => x.setAttribute('aria-pressed', x === b));
+      if (b.dataset.col === 'lado') ladoConsulta();
+      window.scrollTo(0, 0);
+    }));
+    let ladoVista = 'clave';
+    function ladoConsulta(vista) {
+      if (vista) ladoVista = vista;
+      const L = $('#cons-lado');
+      const seg = [['clave', 'Lo clave'], ['todo', 'Todas las respuestas'], ['informe', 'Informe']];
+      let h = `<div class="seg">${seg.map(([k, t]) => `<button class="chip" data-lado="${k}" aria-pressed="${k === ladoVista}">${t}</button>`).join('')}</div>`;
+      if (ladoVista === 'clave') h += `<div class="resumen">${A.aHTML(actual.res, actual.ficha)}</div>`;
+      else if (ladoVista === 'todo') h += respuestasHTML();
+      else h += informeHTML();
+      L.innerHTML = h;
+      L.querySelectorAll('[data-lado]').forEach(b => b.addEventListener('click', () => ladoConsulta(b.dataset.lado)));
+      if (ladoVista === 'todo') conectarAudios(L);
+      if (ladoVista === 'informe') conectarInforme(L, () => ladoConsulta());
+    }
+    function refrescarInforme() {
+      if (ladoVista !== 'informe') return;
+      clearTimeout(informeTimer); informeTimer = setTimeout(() => ladoConsulta(), 500);
+    }
+    function pintarPaso() {
+      const p = P[cs.paso], k = p.k;
+      const marcados = pp => pp.preguntar.concat(pp.hacer).filter((_, j) => cs.checks[`${pp.k}.${j}`]).length;
+      let h = `<nav class="pasos-nav no-print">${P.map((pp, i) => {
+        const tot = pp.preguntar.length + pp.hacer.length, n = marcados(pp);
+        return `<button class="chip ${i === cs.paso ? 'actual' : ''} ${tot && n === tot ? 'listo' : ''}" data-paso="${i}" aria-pressed="${i === cs.paso}">${i + 1}. ${esc(pp.corto)}${tot && n === tot ? ' ✓' : ''}</button>`;
+      }).join('')}</nav>`;
+      h += `<div class="tarjeta paso"><div class="test-tit"><h2>${cs.paso + 1}. ${esc(p.t)}</h2><span class="ayuda" style="margin:0">${p.min} min</span></div>`;
+      const lista = (arr, off, tit) => arr.length ? `<h4>${tit}</h4>` + arr.map((it, j) => { const kk = `${k}.${off + j}`; return `<label class="check grande"><input type="checkbox" data-cc="${kk}" ${cs.checks[kk] ? 'checked' : ''}><span>${esc(it)}</span></label>`; }).join('') : '';
+      h += lista(p.preguntar, 0, '🗣️ Preguntar');
+      h += lista(p.hacer, p.preguntar.length, '✅ Hacer');
+      if (p.tener.length) h += `<h4>💡 Tener en cuenta</h4><ul class="tener">${p.tener.map(x => `<li>${esc(x)}</li>`).join('')}</ul>`;
+      if (p.evaluar.length) {
+        h += `<h4>🩺 Evaluar</h4>`;
+        const sug = E.prefillMartinelli(actual.ficha);
+        let ultimoTest = null;
+        p.evaluar.forEach(([tid, ids]) => {
+          const tt = E.TESTS.find(x => x.id === tid);
+          const e = ev[tid] || {};
+          const items = ids ? tt.items.filter(i => ids.includes(i.id)) : tt.items;
+          const conPuntaje = (p.puntajes || []).includes(tid) && (tt.puntaje || tt.martinelli);
+          if (tid !== ultimoTest) h += `<div class="sub-test"><span>${tt.emo} ${esc(tt.titulo)}</span>${conPuntaje ? `<span class="score" id="sc-${tid}"></span>` : ''}</div>`;
+          ultimoTest = tid;
+          let grupo = null;
+          items.forEach(i => {
+            if (tt.martinelli && !ids && i.grupo !== grupo) {
+              grupo = i.grupo;
+              const nombres = { historia: 'Historia clínica', anato: 'Anatomofuncional', succion: 'Succión' };
+              if (nombres[grupo]) h += `<h5>${nombres[grupo]}</h5>`;
+            }
+            h += `<div class="item">${campoEval(tt, i, e, tid === 'martinelli' ? sug[i.id] : undefined)}</div>`;
+            if (tid === 'datos' && i.id === 'peso_hoy') h += `<div class="interp oculto" id="calc-peso"></div>`;
+          });
+          if ((p.puntajes || []).includes(tid) && (tt.puntaje || tt.martinelli || tid === 'datos')) h += `<div class="interp oculto" id="in-${tid}"></div>`;
+        });
+      }
+      if (p.fotos.length) {
+        h += `<h4>📷 Fotos</h4><div class="fotos-cons">`;
+        p.fotos.forEach(fid => {
+          const ft = E.FOTOS.tomas.find(x => x.id === fid);
+          const ya = actual.archivos.filter(a => a.clase === 'protocolo' && a.pregunta === fid);
+          h += `<div class="foto-cons ${ya.length ? 'ya' : ''}"><div><b>${ya.length ? '✅' : '⬜'} ${esc(ft.t)}</b><div class="ayuda">${esc(ft.como)}</div></div>
+            <div class="fotos-grid">${ya.map(a => `<div class="foto" data-ver="${a.fileId}"></div>`).join('')}</div>
+            <label class="boton-subir no-print">📷 ${ya.length ? 'Otra' : (ft.video ? 'Grabar' : 'Sacar')}<input type="file" accept="${ft.video ? 'video/*' : 'image/*'}" capture="environment" data-prot="${fid}" data-etq="${esc(ft.t)}"></label>
+            <div class="ayuda oculto" id="sub-${fid}"></div></div>`;
+        });
+        h += `</div>`;
+      }
+      h += `<h4>📝 Notas de este paso</h4>${campoEval({ id: '_notas' }, { id: k, tipo: 'texto', t: '' }, ev._notas || {})}`;
+      h += `</div>`;
+      h += `<div class="barra-consulta no-print">
+        <button class="btn sec" id="cons-prev" ${cs.paso === 0 ? 'disabled' : ''}>◀ Anterior</button>
+        <button class="btn sec" id="guardar-ev">Guardar</button>
+        <button class="btn prim" id="cons-next">${cs.paso === P.length - 1 ? '✓ Ver informe' : 'Siguiente ▶'}</button></div>
+        <p class="ayuda no-print" id="ev-estado" style="text-align:center"></p>`;
+      const pr = $('#cons-proto');
+      pr.innerHTML = h;
+      pr.querySelectorAll('[data-paso]').forEach(b => b.addEventListener('click', () => irPaso(+b.dataset.paso)));
+      pr.querySelectorAll('[data-cc]').forEach(c => c.addEventListener('change', () => { cs.checks[c.dataset.cc] = c.checked; cambio(); pintarNav(); }));
+      conectarEval(pr, () => { pintarPeso(); refrescarInforme(); }, () => pintarPaso());
+      pr.querySelectorAll('[data-ver]').forEach(cargarMiniatura);
+      pr.querySelectorAll('[data-prot]').forEach(inp => inp.addEventListener('change', () => subirProtocolo(inp, () => pintarPaso())));
+      $('#cons-prev').addEventListener('click', () => irPaso(cs.paso - 1));
+      $('#cons-next').addEventListener('click', () => {
+        if (cs.paso < P.length - 1) return irPaso(cs.paso + 1);
+        guardarEval();
+        if (getComputedStyle(v.querySelector('.consulta-movil')).display !== 'none') v.querySelector('button[data-col=lado]').click();
+        ladoConsulta('informe');
+      });
+      $('#guardar-ev').addEventListener('click', guardarEval);
+      puntajes(); pintarPeso();
+    }
+    function pintarNav() {
+      const nav = $('#cons-proto .pasos-nav'); if (!nav) return;
+      nav.querySelectorAll('[data-paso]').forEach(b => {
+        const pp = P[+b.dataset.paso];
+        const tot = pp.preguntar.length + pp.hacer.length;
+        const n = pp.preguntar.concat(pp.hacer).filter((_, j) => cs.checks[`${pp.k}.${j}`]).length;
+        b.classList.toggle('listo', !!tot && n === tot);
+        b.textContent = `${+b.dataset.paso + 1}. ${pp.corto}${tot && n === tot ? ' ✓' : ''}`;
+      });
+    }
+    function pintarPeso() {
+      const el = $('#calc-peso'); if (!el) return;
+      const txt = textoPeso();
+      el.textContent = txt; el.classList.toggle('oculto', !txt);
+    }
+    function irPaso(i) {
+      if (i < 0 || i >= P.length) return;
+      cs.paso = i; cambio(); pintarPaso();
+      const pr = $('#cons-proto'); if (pr.scrollIntoView) pr.scrollIntoView({ block: 'start' });
+    }
+    if (consultaTeclas) document.removeEventListener('keydown', consultaTeclas);
+    consultaTeclas = e => {
+      if (tab !== 'consulta' || !document.body.contains($('#cons-proto'))) return;
+      if (/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName) && e.target.type !== 'checkbox') return;
+      if (e.key === 'ArrowRight' || e.key === 'PageDown') { e.preventDefault(); irPaso(cs.paso + 1); }
+      if (e.key === 'ArrowLeft' || e.key === 'PageUp') { e.preventDefault(); irPaso(cs.paso - 1); }
+    };
+    document.addEventListener('keydown', consultaTeclas);
+    ladoConsulta();
+    pintarPaso();
+  }
+
+  // Peso: cálculo en vivo con el peso de hoy
+  function textoPeso() {
+    const r = actual.ficha, d = (actual.evaluacion.datos || {});
+    const hoy = parseFloat(d.peso_hoy); if (!hoy) return '';
+    const fEval = d.fecha ? new Date(d.fecha + 'T12:00:00') : new Date();
+    const pesos = A.pesosOrdenados(r).filter(p => p.f < fEval);
+    const ult = pesos[pesos.length - 1];
+    const partes = [];
+    if (ult) { const dias = Math.max(1, Math.round((fEval - ult.f) / 86400000)); partes.push(`Desde el último peso (${A.fmtFecha(ult.f)}): ${hoy - ult.g >= 0 ? '+' : ''}${Math.round(hoy - ult.g)} g en ${dias} ${dias === 1 ? 'día' : 'días'} = ${Math.round((hoy - ult.g) / dias)} g/día`); }
+    const nac = parseFloat(r.peso_nac), fn = r.bebe_nac ? new Date(r.bebe_nac + 'T12:00:00') : null;
+    if (nac && fn) { const dias = Math.max(1, Math.round((fEval - fn) / 86400000)); partes.push(`Desde el nacimiento: ${hoy - nac >= 0 ? '+' : ''}${Math.round(hoy - nac)} g en ${dias} días = ${Math.round((hoy - nac) / dias)} g/día`); }
+    if (!partes.length) return '';
+    return partes.join(' · ') + '. Referencia orientativa en los primeros 3 meses: unos 20 a 35 g/día.';
+  }
+
+  // ---------- Informe (para la familia o profesional) ----------
+  let informeTipo = 'familia';
+  function informeHTML() {
+    const manual = informeTipo === 'familia' && actual.devolucion;
+    const html = informeTipo === 'familia' ? (actual.devolucion || generarDevolucion()) : generarInformeClinico();
+    return `<div class="seg" style="margin-top:6px">
+        <button class="chip" data-inf="familia" aria-pressed="${informeTipo === 'familia'}">Para la familia</button>
+        <button class="chip" data-inf="clinico" aria-pressed="${informeTipo === 'clinico'}">Profesional</button></div>
+      <p class="ayuda">${manual ? 'Es la versión que editaste a mano en Devolución.' : 'Se arma solo con la ficha y lo que vas marcando.'}</p>
+      <div class="devolucion" id="inf-prev">${html}</div>
+      <div class="fila-botones no-print">
+        <button class="btn sec" id="inf-copiar">📋 Copiar</button>
+        <button class="btn sec" id="inf-imprimir">🖨️ PDF</button>
+        ${informeTipo === 'familia' ? '<button class="btn prim" id="inf-editar">✏️ Editar y mandar</button>' : ''}</div>`;
+  }
+  function conectarInforme(L, repintar) {
+    L.querySelectorAll('[data-inf]').forEach(b => b.addEventListener('click', () => { informeTipo = b.dataset.inf; repintar(); }));
+    $('#inf-copiar').addEventListener('click', () => copiar($('#inf-prev').innerText, $('#inf-copiar')));
+    $('#inf-imprimir').addEventListener('click', () => imprimirHTML($('#inf-prev').innerHTML));
+    const ed = $('#inf-editar'); if (ed) ed.addEventListener('click', () => { tab = 'devolucion'; abrirTab(); });
+  }
+  function imprimirHTML(html) {
+    const w = window.open('', '_blank');
+    if (!w) return alert('Permití las ventanas emergentes para imprimir.');
+    w.document.write(`<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Informe</title><link rel="stylesheet" href="${location.href.replace(/[^/]*$/, '')}estilos.css"><style>body{background:#fff;padding:24px;max-width:780px;margin:auto}.devolucion h1{font-family:var(--serif);font-style:italic;color:var(--azul);font-size:26px;margin:0}.devolucion h2{font-size:18px;color:var(--azul);margin:18px 0 6px}.dev-cab{display:flex;gap:12px;align-items:center;border-bottom:2px solid var(--rosa-cl);padding-bottom:12px}.dev-cab .iso{--lc:var(--beige);--lq:var(--azul);--lf:var(--rosa);width:52px}.meta{color:var(--gris);font-size:14px}.firma-dev{margin-top:22px;border-top:2px solid var(--rosa-cl);padding-top:10px;font-size:14px;color:var(--gris)}table{border-collapse:collapse;width:100%}td{padding:4px 8px 4px 0;vertical-align:top}</style></head><body><div class="devolucion">${html}</div><script>setTimeout(()=>print(),400)<\/script></body></html>`);
+    w.document.close();
+  }
+  function generarInformeClinico() {
+    const r = actual.ficha, ev = actual.evaluacion, res = actual.res;
+    const d = ev.datos || {}, c = ev.cierre || {};
+    const fechaEval = d.fecha ? new Date(d.fecha + 'T12:00:00') : new Date();
+    const nac = r.bebe_nac ? new Date(r.bebe_nac + 'T12:00:00') : null;
+    const edad = nac ? Math.floor((fechaEval - nac) / 86400000) : null;
+    const op = (tid, iid, v) => { const it = E.TESTS.find(t => t.id === tid).items.find(i => i.id === iid); return (it.opciones.find(o => o.v === v) || {}).t || v; };
+    const ops = (tid, iid) => { const v = (ev[tid] || {})[iid]; if (v == null || v === '' || (Array.isArray(v) && !v.length)) return ''; return Array.isArray(v) ? v.map(x => op(tid, iid, x)).join(', ') : op(tid, iid, v); };
+    const fila = (k, v) => v ? `<tr><td style="color:#878787;white-space:nowrap">${esc(k)}</td><td>${v}</td></tr>` : '';
+    const sec = (tit, filas) => filas.replace(/\s/g, '') ? `<h2>${tit}</h2><table>${filas}</table>` : '';
+    let h = `<div class="dev-cab"><div class="iso">${C.ISO}</div><div><h1>Informe de evaluación en lactancia</h1><div class="meta">${A.fmtFecha(fechaEval)}${d.modalidad ? ' · ' + esc(op('datos', 'modalidad', d.modalidad)) : ''}</div></div></div>`;
+    h += sec('Datos', fila('Paciente', esc(r.bebe_nombre || '')) + fila('Edad', edad != null ? esc(A.edadTexto(edad)) : '') + fila('Nacimiento', [r.sem_gest ? r.sem_gest + ' sem' : '', r.tipo_parto ? A.etiqueta('tipo_parto', r.tipo_parto) : '', r.peso_nac ? Number(r.peso_nac).toLocaleString('es-PY') + ' g' : ''].filter(Boolean).map(esc).join(' · ')) + fila('Quien amamanta', esc(r.quien_nombre || '')));
+    h += sec('Motivo de consulta', fila('Motivo', esc([r.motivo_chips && r.motivo_chips.length ? A.etiqueta('motivo_chips', r.motivo_chips) : '', r.motivo_txt ? '«' + r.motivo_txt.trim() + '»' : ''].filter(Boolean).join('. '))) + fila('Alimentación', r.alim ? esc(A.etiqueta('alim', r.alim)) : '') + fila('Objetivo', r.objetivo ? esc(A.etiqueta('objetivo', r.objetivo)) : ''));
+    const pt = textoPeso();
+    const pre = parseFloat(d.pre), post = parseFloat(d.post);
+    h += sec('Antropometría', fila('Peso de hoy', d.peso_hoy ? Math.round(d.peso_hoy).toLocaleString('es-PY') + ' g' : '') + fila('Evolución', esc(pt.replace(/\. Referencia.*$/, ''))) + fila('Pesada pre/post', pre && post ? `${pre} → ${post} g (transferencia aprox. ${Math.round(post - pre)} ml)` : ''));
+    const sc = id => { const t = E.TESTS.find(x => x.id === id), p = E.puntos(t, ev); return p.n ? `${p.s}/${t.max}${p.n === p.total ? ' · ' + esc(t.interpreta(p.s)) : ` (${p.n} de ${p.total} ítems)`}` : ''; };
+    const obs = E.TESTS.find(t => t.id === 'obs'); const eo = ev.obs || {};
+    const obsTxt = obs.items.filter(i => i.tipo === 'checks').map(i => { const n = (eo[i.id] || []).length; return n ? `${i.t}: ${n}/${i.opciones.length}` : ''; }).filter(Boolean).join(' · ');
+    h += sec('Evaluación de la toma', fila('Observación OMS', esc(obsTxt)) + fila('LATCH', sc('latch')) + fila('BBAT', sc('bbat')) + fila('Pezón al soltar', esc(ops('pechos', 'al_soltar'))) + fila('Notas', esc(eo.notas || '')));
+    const m = E.martinelli(ev);
+    const mofI = ['busqueda', 'succion_ref', 'mordida', 'nausea', 'snn', 'labios', 'kotlow', 'paladar', 'mandibula', 'tono', 'lengua_reposo', 'respiracion', 'cuello'];
+    const mofT = E.TESTS.find(t => t.id === 'mof');
+    h += sec('Motricidad orofacial y frenillo', fila('BTAT', sc('btat')) + fila('Martinelli', m.lineas.map(esc).join('<br>')) + mofI.map(i => fila(mofT.items.find(x => x.id === i).t, esc(ops('mof', i)))).join('') + fila('Notas', esc((ev.mof || {}).notas || '')) + fila('Notas frenillo', esc((ev.martinelli || {}).notas || '')));
+    h += sec('Pecho y pezón', ['pezon_d', 'pezon_i', 'piel', 'mama'].map(i => fila(E.TESTS.find(t => t.id === 'pechos').items.find(x => x.id === i).t, esc(ops('pechos', i)))).join('') + fila('Notas', esc((ev.pechos || {}).notas || '')));
+    if (ev.mamadera) h += sec('Mamadera', ['postura', 'ritmo', 'signos'].map(i => fila(E.TESTS.find(t => t.id === 'mamadera').items.find(x => x.id === i).t, esc(ops('mamadera', i)))).join('') + fila('Tiempo', ev.mamadera.tiempo ? esc(ev.mamadera.tiempo) + ' min' : '') + fila('Notas', esc(ev.mamadera.notas || '')));
+    const notas = Object.entries(ev._notas || {}).filter(([, v]) => v && v.trim());
+    if (notas.length) h += `<h2>Notas de la sesión</h2><ul>${notas.map(([, v]) => `<li>${esc(v)}</li>`).join('')}</ul>`;
+    if (c.impresion) h += `<h2>Impresión</h2><p>${esc(c.impresion)}</p>`;
+    const ind = (c.indicaciones || []).map(v => op('cierre', 'indicaciones', v)); if (c.indicaciones_txt) ind.push(c.indicaciones_txt);
+    if (ind.length) h += `<h2>Plan</h2><ol>${ind.map(x => `<li>${esc(x)}</li>`).join('')}</ol>`;
+    const der = (c.derivaciones || []).map(v => op('cierre', 'derivaciones', v));
+    if (der.length) h += `<h2>Derivaciones</h2><p>${der.map(esc).join(', ')}</p>`;
+    if (c.proximo) h += `<h2>Próximo control</h2><p>${esc(c.proximo)}</p>`;
+    h += `<div class="firma-dev"><b>${esc(window.CONFIG.NOMBRE)}</b><br>${esc(window.CONFIG.TITULOS)}<br>📱 ${esc(window.CONFIG.WHATSAPP)}</div>`;
+    return h;
   }
 
   // ---------- Archivos ----------
@@ -245,6 +543,10 @@
     return String(v) + (p.unidad ? ' ' + p.unidad : '');
   }
   function tabRespuestas(v) {
+    v.innerHTML = respuestasHTML() || '<p>Sin respuestas.</p>';
+    conectarAudios(v);
+  }
+  function respuestasHTML() {
     const r = actual.ficha;
     let h = '';
     F.SECCIONES.forEach(s => {
@@ -260,8 +562,7 @@
       }).join('');
       if (filas) h += `<div class="tarjeta resp-sec"><h3>${s.emo} ${esc(s.titulo)}</h3>${filas}</div>`;
     });
-    v.innerHTML = h || '<p>Sin respuestas.</p>';
-    conectarAudios(v);
+    return h;
   }
 
   // ---------- Fotos ----------
@@ -292,7 +593,7 @@
       div.innerHTML = /^video/.test(a.tipo) ? `<video src="${u}" controls playsinline></video>` : `<a href="${u}" target="_blank"><img src="${u}" alt="${esc(a.etiqueta)}"></a>`;
     } catch (e) { div.innerHTML = '<div class="ayuda" style="padding:8px">⚠️</div>'; }
   }
-  async function subirProtocolo(inp) {
+  async function subirProtocolo(inp, alTerminar) {
     const f = inp.files[0]; if (!f) return;
     const est = $('#sub-' + inp.dataset.prot); est.classList.remove('oculto'); est.textContent = 'Subiendo…';
     if (DEMO) { est.textContent = 'Modo prueba: no se sube a ningún lado.'; return; }
@@ -300,7 +601,7 @@
       const blob = f.type.startsWith('image') ? await C.comprimirFoto(f, 2000, 0.9) : f;
       const r = await api({ accion: 'subir', id: actual.id, clase: 'protocolo', pregunta: inp.dataset.prot, etiqueta: inp.dataset.etq, tipo: blob.type, ext: C.extension(blob.type), datos: await C.aBase64(blob) });
       actual.archivos.push(r.archivo);
-      tabFotos($('#vista-detalle'));
+      alTerminar ? alTerminar() : tabFotos($('#vista-detalle'));
     } catch (e) { est.textContent = '⚠️ No se pudo subir. Probá de nuevo.'; }
   }
 
@@ -327,6 +628,13 @@
     });
     h += `<div class="barra-guardar no-print"><button class="btn prim" id="guardar-ev" style="width:100%">Guardar evaluación</button><p class="ayuda" id="ev-estado" style="text-align:center"></p></div>`;
     v.innerHTML = h;
+    conectarEval(v, null, () => tabEvaluacion(v));
+    $('#guardar-ev').addEventListener('click', guardarEval);
+    puntajes();
+  }
+  function conectarEval(v, alCambiar, repintar) {
+    const ev = actual.evaluacion;
+    const sug = E.prefillMartinelli(actual.ficha);
     v.querySelectorAll('[data-ev]').forEach(b => b.addEventListener('click', () => {
       const [tid, iid, val, multi] = [b.dataset.ev, b.dataset.item, b.dataset.v, b.dataset.multi];
       ev[tid] = ev[tid] || {};
@@ -335,15 +643,13 @@
         ev[tid][iid] = ev[tid][iid] === val ? undefined : val;
         b.parentElement.querySelectorAll('[data-ev]').forEach(x => x.setAttribute('aria-pressed', x.dataset.v === ev[tid][iid]));
       }
-      cambio(); puntajes();
+      cambio(); puntajes(); if (alCambiar) alCambiar();
     }));
-    v.querySelectorAll('[data-evin]').forEach(el => el.addEventListener('input', () => { const [tid, iid] = el.dataset.evin.split('.'); ev[tid] = ev[tid] || {}; ev[tid][iid] = el.value; cambio(); puntajes(); }));
+    v.querySelectorAll('[data-evin]').forEach(el => el.addEventListener('input', () => { const [tid, iid] = el.dataset.evin.split('.'); ev[tid] = ev[tid] || {}; ev[tid][iid] = el.value; cambio(); puntajes(); if (alCambiar) alCambiar(); }));
     v.querySelectorAll('[data-sug]').forEach(b => b.addEventListener('click', () => {
-      ev.martinelli = ev.martinelli || {}; Object.assign(ev.martinelli, sug); cambio(); tabEvaluacion(v);
+      ev.martinelli = ev.martinelli || {}; Object.assign(ev.martinelli, sug); cambio(); repintar();
     }));
     conectarDictado(v);
-    $('#guardar-ev').addEventListener('click', guardarEval);
-    puntajes();
   }
   function campoEval(t, i, e, sugerido) {
     const val = e[i.id];
@@ -362,8 +668,8 @@
   function puntajes() {
     const ev = actual.evaluacion;
     E.TESTS.forEach(t => {
-      const sc = $('#sc-' + t.id), inn = $('#in-' + t.id);
-      if (!sc) return;
+      const sc = $('#sc-' + t.id) || { set textContent(x) { } }, inn = $('#in-' + t.id);
+      if (!inn) return;
       if (t.puntaje) {
         const p = E.puntos(t, ev);
         sc.textContent = p.n ? `${p.s}/${t.max}` : '';
@@ -444,6 +750,11 @@
     const pe = ev.pechos || {};
     if (pe.al_soltar === 'aplastado' || pe.al_soltar === 'labial') visto.push('Al soltar, el pezón sale aplastado: es una señal de que el agarre todavía no es lo bastante profundo.');
     if ((pe.piel || []).includes('grieta')) visto.push('Hay grietas en el pezón, que van a mejorar a medida que mejore el agarre.');
+    const mo = ev.mof || {};
+    if (mo.cuello === 'preferencia' || mo.cuello === 'limitacion') visto.push('Al girar la cabecita tiene preferencia de un lado. Vale que lo mire kinesiología, porque influye en cómo se prende.');
+    if (mo.respiracion === 'oral' || mo.respiracion === 'mixta') visto.push('Por momentos respira por la boca: lo vamos a seguir mirando.');
+    const ma = ev.mamadera || {};
+    if (ma.ritmo === 'corrido' || (ma.signos || []).some(x => ['pierde', 'tos', 'estres'].includes(x))) visto.push('Con la mamadera el ritmo le cuesta un poco: más vertical, con pausas y tetina de flujo lento va a poder regularse mejor.');
     if (c.impresion) visto.push(esc(c.impresion));
     const ind = E.TESTS.find(t => t.id === 'cierre').items.find(i => i.id === 'indicaciones');
     const indic = (c.indicaciones || []).map(v => (ind.opciones.find(o => o.v === v) || {}).t);
