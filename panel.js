@@ -121,7 +121,7 @@
     P.push({
       k: 'prep', t: 'Antes de empezar', corto: 'Preparar', min: 5,
       preguntar: [],
-      hacer: ['Leer «Lo clave» de la ficha (columna de la izquierda).', 'Balanza tarada, guantes, linterna (otro celu), toallita, almohadón.', 'Celu o tablet cargado, con espacio para fotos y video.', 'Lavado de manos y guantes puestos.'],
+      hacer: ['Leer «Lo clave» de la ficha (columna de la izquierda).', 'Guantes, linterna (otro celu), toallita, almohadón.', 'Celu o tablet cargado, con espacio para fotos y video.', 'Lavado de manos y guantes puestos.'],
       tener: ['Con guantes: tocá la pantalla con el nudillo, o usá el teclado de la compu (Tab para moverte, Espacio para marcar, flechas ← → para cambiar de paso).', 'Para escribir sin tocar nada: 🎙️ Dictar en las notas.'],
       evaluar: [['datos', ['fecha', 'modalidad']]], fotos: [],
     });
@@ -148,16 +148,16 @@
     P.push({ k: 'entrevista', t: 'Bienvenida y entrevista', corto: 'Entrevista', min: 10, preguntar: preg, tener: tenerE, evaluar: [], fotos: [] });
 
     // 3. Bebé en calma
-    const tenerB = ['Pesar sin ropa (o con pañal seco), siempre en la misma balanza tarada.'];
+    const tenerB = [];
     if (ult) tenerB.push(`Último peso de la ficha: ${ult.g.toLocaleString('es-PY')} g (${A.fmtFecha(ult.f)}).`);
     if (r.peso_nac) tenerB.push(`Peso al nacer: ${Number(r.peso_nac).toLocaleString('es-PY')} g.`);
     if (r.cabeza_lado === 'si') tenerB.push('La familia nota que gira la cabeza siempre hacia un lado: mirar rotación e inclinación a ambos lados.');
     if (r.boca_abierta === 'si' || r.ronca === 'si' || r.ronca === 'aveces') tenerB.push('Contaron boca abierta en reposo o ronquidos: mirar respiración nasal.');
-    P.push({ k: 'bebe', t: 'Bebé en calma: mirar y pesar', corto: 'Bebé', min: 10, calcPeso: true,
-      preguntar: ['¿Cuándo fue el último control con pediatra y qué peso le dio?'],
+    P.push({ k: 'bebe', t: 'Bebé en calma: mirar', corto: 'Bebé', min: 10,
+      preguntar: ['¿Cuándo fue el último control con pediatra y qué peso le dio? (anotarlo en las notas)'],
       hacer: ['Estado general: color, ictericia, tono, respiración, si está alerta o dormido.'],
       tener: tenerB,
-      evaluar: [['datos', ['peso_hoy']], ['mof', ['tono', 'respiracion', 'cuello']], ['martinelli', ['a1']]],
+      evaluar: [['mof', ['tono', 'respiracion', 'cuello']], ['martinelli', ['a1']]],
       fotos: ['frente_reposo', 'perfil_der', 'perfil_izq', 'postura'] });
 
     // 4. Pecho y pezón
@@ -173,14 +173,14 @@
       evaluar: [['pechos', ['pezon_d', 'pezon_i', 'piel', 'mama']]], fotos: [] });
 
     // 5. Toma observada
-    const tenerT = ['Dejar que se acomode como siempre los primeros minutos; recién después ayudar.', 'Pesada antes y después con la misma ropa y el mismo pañal.'];
+    const tenerT = ['Dejar que se acomode como siempre los primeros minutos; recién después ayudar.'];
     if (r.toma_nota && r.toma_nota.length) tenerT.push(`En la toma la familia nota: ${lbl('toma_nota', r.toma_nota).toLowerCase()}.`);
     if (r.duracion) tenerT.push(`Duración que contó: ${lbl('duracion', r.duracion).toLowerCase()}.`);
     P.push({ k: 'toma', t: 'Toma observada', corto: 'Toma', min: 20,
       preguntar: ['Después de ajustar posición o agarre: ¿cuánto duele ahora, de 0 a 10?'],
       tener: tenerT,
-      evaluar: [['datos', ['pre']], ['obs', ['postura', 'agarre', 'succion', 'pecho']], ['latch', null], ['bbat', null], ['pechos', ['al_soltar']], ['datos', ['post']], ['obs', ['notas']]],
-      puntajes: ['datos', 'latch', 'bbat'],
+      evaluar: [['obs', ['postura', 'agarre', 'succion', 'pecho']], ['latch', null], ['bbat', null], ['pechos', ['al_soltar']], ['obs', ['notas']]],
+      puntajes: ['latch', 'bbat'],
       fotos: ['agarre_perfil', 'agarre_arriba', 'pezon_frente', 'pezon_perfil', 'video_toma'] });
 
     // 6. Boca y frenillo
@@ -461,7 +461,7 @@
 
 Tu trabajo tiene cuatro partes.
 
-1. Control de coherencia. Cruzá las notas con los ítems marcados, los puntajes y la ficha. En "incoherencias" anotá cada contradicción concreta (por ejemplo: una nota dice que el agarre es bueno pero el LATCH es bajo; la ficha dice que el frenillo se cortó y una nota dice que no). En "faltantes" anotá los datos que hacen falta para cerrar el informe y no están (peso de hoy, impresión, plan, próximo control, fotos clave, ítems sin evaluar que el caso pide). En "alertas" anotá lo que requiere atención clínica pronto (signos de alarma, derivaciones que el caso sugiere y no figuran). Cada punto en una frase corta y concreta. Si no hay nada, dejá la lista vacía.
+1. Control de coherencia. Cruzá las notas con los ítems marcados, los puntajes y la ficha. En "incoherencias" anotá cada contradicción concreta (por ejemplo: una nota dice que el agarre es bueno pero el LATCH es bajo; la ficha dice que el frenillo se cortó y una nota dice que no). En "faltantes" anotá los datos que hacen falta para cerrar el informe y no están (impresión, plan, próximo control, fotos clave, ítems sin evaluar que el caso pide). Ceci no pesa a los bebés: usá los pesos de la ficha o del pediatra y nunca marques el peso como faltante. En "alertas" anotá lo que requiere atención clínica pronto (signos de alarma, derivaciones que el caso sugiere y no figuran). Cada punto en una frase corta y concreta. Si no hay nada, dejá la lista vacía.
 
 2. Notas corregidas. Para cada nota por paso, devolvé el mismo contenido con ortografía, puntuación y redacción corregidas, abreviaturas desarrolladas y frases completas. No agregues información que la nota no tenga y no quites nada clínico. En "paso" usá exactamente la clave que aparece entre corchetes.
 
