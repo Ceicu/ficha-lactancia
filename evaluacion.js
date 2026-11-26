@@ -90,7 +90,6 @@
         { id: 'kotlow', tipo: 'una', t: 'Frenillo labial superior (Kotlow)', opciones: [o('1', 'Clase I'), o('2', 'Clase II'), o('3', 'Clase III'), o('4', 'Clase IV')] },
         { id: 'paladar', tipo: 'una', t: 'Paladar', opciones: [o('normal', 'Normal'), o('alto', 'Alto u ojival'), o('estrecho', 'Estrecho'), o('fisura', 'Fisura (incluye submucosa)')] },
         { id: 'mandibula', tipo: 'una', t: 'Mandíbula', opciones: [o('normal', 'Normal'), o('retro', 'Retrognatia'), o('asimetria', 'Asimetría')] },
-        { id: 'tono', tipo: 'una', t: 'Tono global', opciones: [o('normal', 'Normal'), o('hipo', 'Hipotonía'), o('hiper', 'Hipertonía'), o('fluctuante', 'Fluctuante')] },
         { id: 'lengua_reposo', tipo: 'una', t: 'Lengua en reposo', opciones: [o('paladar', 'Contra el paladar'), o('piso', 'En el piso de la boca'), o('interpuesta', 'Interpuesta entre encías')] },
         { id: 'respiracion', tipo: 'una', t: 'Respiración', opciones: [o('nasal', 'Nasal'), o('oral', 'Oral'), o('mixta', 'Mixta')] },
         { id: 'cuello', tipo: 'una', t: 'Cuello y postura', opciones: [o('simetrico', 'Simétrico, rota bien a ambos lados'), o('preferencia', 'Preferencia de lado'), o('limitacion', 'Limitación de rotación o inclinación')] },

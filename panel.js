@@ -155,9 +155,9 @@
     if (r.boca_abierta === 'si' || r.ronca === 'si' || r.ronca === 'aveces') tenerB.push('Contaron boca abierta en reposo o ronquidos: mirar respiración nasal.');
     P.push({ k: 'bebe', t: 'Bebé en calma: mirar', corto: 'Bebé', min: 10,
       preguntar: ['¿Cuándo fue el último control con pediatra y qué peso le dio? (anotarlo en las notas)'],
-      hacer: ['Estado general: color, ictericia, tono, respiración, si está alerta o dormido.'],
+      hacer: ['Estado general: color, ictericia, respiración, si está alerta o dormido.'],
       tener: tenerB,
-      evaluar: [['mof', ['tono', 'respiracion', 'cuello']], ['martinelli', ['a1']]],
+      evaluar: [['mof', ['respiracion', 'cuello']], ['martinelli', ['a1']]],
       fotos: ['frente_reposo', 'perfil_der', 'perfil_izq', 'postura'] });
 
     // 4. Pecho y pezón
@@ -432,14 +432,18 @@
     const pt = textoPeso();
     const pre = parseFloat(d.pre), post = parseFloat(d.post);
     h += sec('Antropometría', fila('Peso de hoy', d.peso_hoy ? Math.round(d.peso_hoy).toLocaleString('es-PY') + ' g' : '') + fila('Evolución', esc(pt.replace(/\. Referencia.*$/, ''))) + fila('Pesada pre/post', pre && post ? `${pre} → ${post} g (transferencia aprox. ${Math.round(post - pre)} ml)` : ''));
-    const sc = id => { const t = E.TESTS.find(x => x.id === id), p = E.puntos(t, ev); return p.n ? `${p.s}/${t.max}${p.n === p.total ? ' · ' + esc(t.interpreta(p.s)) : ` (${p.n} de ${p.total} ítems)`}` : ''; };
+    const PEND = 'Pendiente para la próxima evaluación (no se completó)';
+    const sc = id => { const t = E.TESTS.find(x => x.id === id), p = E.puntos(t, ev); return p.n ? (p.n === p.total ? `${p.s}/${t.max} · ${esc(t.interpreta(p.s))}` : PEND) : ''; };
     const obs = E.TESTS.find(t => t.id === 'obs'); const eo = ev.obs || {};
     const obsTxt = obs.items.filter(i => i.tipo === 'checks').map(i => { const n = (eo[i.id] || []).length; return n ? `${i.t}: ${n}/${i.opciones.length}` : ''; }).filter(Boolean).join(' · ');
     h += sec('Evaluación de la toma', fila('Observación OMS', esc(obsTxt)) + fila('LATCH', sc('latch')) + fila('BBAT', sc('bbat')) + fila('Pezón al soltar', esc(ops('pechos', 'al_soltar'))) + fila('Notas', esc(eo.notas || '')));
-    const m = E.martinelli(ev);
-    const mofI = ['busqueda', 'succion_ref', 'mordida', 'nausea', 'snn', 'labios', 'kotlow', 'paladar', 'mandibula', 'tono', 'lengua_reposo', 'respiracion', 'cuello'];
+    const m = E.martinelli(ev), mt = E.TESTS.find(t => t.id === 'martinelli'), em = ev.martinelli || {};
+    const sinResp = i => !(i.opciones || []).find(o => o.v === em[i.id]);
+    const mFalta = mt.items.filter(i => ['historia', 'anato', 'succion'].includes(i.grupo) && (i.opciones || []).length && sinResp(i)).length + (!em.a4 ? 1 : em.a4 === 'no' ? 0 : mt.items.filter(i => i.grupo === 'frenillo' && sinResp(i)).length);
+    const mTxt = !m.lineas.length ? '' : mFalta ? PEND : m.lineas.map(esc).join('<br>');
+    const mofI = ['busqueda', 'succion_ref', 'mordida', 'nausea', 'snn', 'labios', 'kotlow', 'paladar', 'mandibula', 'lengua_reposo', 'respiracion', 'cuello'];
     const mofT = E.TESTS.find(t => t.id === 'mof');
-    h += sec('Motricidad orofacial y frenillo', fila('BTAT', sc('btat')) + fila('Martinelli', m.lineas.map(esc).join('<br>')) + mofI.map(i => fila(mofT.items.find(x => x.id === i).t, esc(ops('mof', i)))).join('') + fila('Notas', esc((ev.mof || {}).notas || '')) + fila('Notas frenillo', esc((ev.martinelli || {}).notas || '')));
+    h += sec('Motricidad orofacial y frenillo', fila('BTAT', sc('btat')) + fila('Martinelli', mTxt) + mofI.map(i => fila(mofT.items.find(x => x.id === i).t, esc(ops('mof', i)))).join('') + fila('Notas', esc((ev.mof || {}).notas || '')) + fila('Notas frenillo', esc((ev.martinelli || {}).notas || '')));
     h += sec('Pecho y pezón', ['pezon_d', 'pezon_i', 'piel', 'mama'].map(i => fila(E.TESTS.find(t => t.id === 'pechos').items.find(x => x.id === i).t, esc(ops('pechos', i)))).join('') + fila('Notas', esc((ev.pechos || {}).notas || '')));
     if (ev.mamadera) h += sec('Mamadera', ['postura', 'ritmo', 'signos'].map(i => fila(E.TESTS.find(t => t.id === 'mamadera').items.find(x => x.id === i).t, esc(ops('mamadera', i)))).join('') + fila('Tiempo', ev.mamadera.tiempo ? esc(ev.mamadera.tiempo) + ' min' : '') + fila('Notas', esc(ev.mamadera.notas || '')));
     const notas = Object.entries(ev._notas || {}).filter(([, v]) => v && v.trim());
@@ -461,7 +465,7 @@
 
 Tu trabajo tiene cuatro partes.
 
-1. Control de coherencia. Cruzá las notas con los ítems marcados, los puntajes y la ficha. En "incoherencias" anotá cada contradicción concreta (por ejemplo: una nota dice que el agarre es bueno pero el LATCH es bajo; la ficha dice que el frenillo se cortó y una nota dice que no). En "faltantes" anotá los datos que hacen falta para cerrar el informe y no están (impresión, plan, próximo control, fotos clave, ítems sin evaluar que el caso pide). Ceci no pesa a los bebés: usá los pesos de la ficha o del pediatra y nunca marques el peso como faltante. En "alertas" anotá lo que requiere atención clínica pronto (signos de alarma, derivaciones que el caso sugiere y no figuran). Cada punto en una frase corta y concreta. Si no hay nada, dejá la lista vacía.
+1. Control de coherencia. Cruzá las notas con los ítems marcados, los puntajes y la ficha. En "incoherencias" anotá cada contradicción concreta (por ejemplo: una nota dice que el agarre es bueno pero el LATCH es bajo; la ficha dice que el frenillo se cortó y una nota dice que no). En "faltantes" anotá los datos que hacen falta para cerrar el informe y no están (impresión, plan, próximo control, fotos clave, ítems sin evaluar que el caso pide). Ceci no pesa a los bebés: usá los pesos de la ficha o del pediatra y nunca marques el peso como faltante. Si un test quedó incompleto o no fue evaluable, no informes su puntaje: ponelo como pendiente para la próxima evaluación. No hables de tono muscular. No incluyas tamizajes de ánimo que no tomó Ceci ni datos de salud de quien amamanta que no sean necesarios para el caso. No atribuyas culpas a la familia (por ejemplo, "le daban forzado"). En "alertas" anotá lo que requiere atención clínica pronto (signos de alarma, derivaciones que el caso sugiere y no figuran). Cada punto en una frase corta y concreta. Si no hay nada, dejá la lista vacía.
 
 2. Notas corregidas. Para cada nota por paso, devolvé el mismo contenido con ortografía, puntuación y redacción corregidas, abreviaturas desarrolladas y frases completas. No agregues información que la nota no tenga y no quites nada clínico. En "paso" usá exactamente la clave que aparece entre corchetes.
 
@@ -876,7 +880,10 @@ Reglas:
         if (p.n === p.total) { inn.textContent = t.interpreta(p.s); inn.classList.remove('oculto'); } else inn.classList.add('oculto');
       }
       if (t.martinelli) {
-        const m = E.martinelli(ev);
+        const m = E.martinelli(ev), mt = E.TESTS.find(t => t.id === 'martinelli'), em = ev.martinelli || {};
+    const sinResp = i => !(i.opciones || []).find(o => o.v === em[i.id]);
+    const mFalta = mt.items.filter(i => ['historia', 'anato', 'succion'].includes(i.grupo) && (i.opciones || []).length && sinResp(i)).length + (!em.a4 ? 1 : em.a4 === 'no' ? 0 : mt.items.filter(i => i.grupo === 'frenillo' && sinResp(i)).length);
+    const mTxt = !m.lineas.length ? '' : mFalta ? PEND : m.lineas.map(esc).join('<br>');
         sc.textContent = m.lineas.length ? `${m.anat}/12` : '';
         if (m.lineas.length) { inn.innerHTML = m.lineas.map(esc).join('<br>'); inn.classList.remove('oculto'); } else inn.classList.add('oculto');
       }
@@ -940,7 +947,10 @@ Reglas:
       visto.push(bp.s >= 7 ? 'La toma se ve eficaz: buena posición, buen agarre y deglución tranquila.' : `En la toma hay cosas para ajustar, sobre todo ${flojos.join(', ')}.`);
     }
     const bt = E.TESTS.find(t => t.id === 'btat'), btp = E.puntos(bt, ev);
-    const m = E.martinelli(ev);
+    const m = E.martinelli(ev), mt = E.TESTS.find(t => t.id === 'martinelli'), em = ev.martinelli || {};
+    const sinResp = i => !(i.opciones || []).find(o => o.v === em[i.id]);
+    const mFalta = mt.items.filter(i => ['historia', 'anato', 'succion'].includes(i.grupo) && (i.opciones || []).length && sinResp(i)).length + (!em.a4 ? 1 : em.a4 === 'no' ? 0 : mt.items.filter(i => i.grupo === 'frenillo' && sinResp(i)).length);
+    const mTxt = !m.lineas.length ? '' : mFalta ? PEND : m.lineas.map(esc).join('<br>');
     if (btp.n === btp.total || m.lineas.length) {
       let t = 'Sobre la lengüita: ';
       if (m.lineas.length) t += m.interfiere ? 'según el protocolo de evaluación del frenillo (Martinelli), el frenillo interfiere con el movimiento de la lengua.' : 'según el protocolo de evaluación del frenillo (Martinelli), el frenillo no está interfiriendo con el movimiento de la lengua.';
