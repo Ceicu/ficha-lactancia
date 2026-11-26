@@ -216,7 +216,7 @@
 
     // 10. Después
     P.push({ k: 'despues', t: 'Después de la consulta', corto: 'Después', min: 5,
-      hacer: ['Revisar el informe (columna de la izquierda → Informe).', 'Mandar la devolución por WhatsApp o en PDF.', 'Agendar el próximo control.'],
+      hacer: ['Corregir ortografía y redacción y revisar la coherencia: columna de la izquierda → Informe → ✨ IA.', 'Revisar el informe (para la familia y profesional).', 'Mandar la devolución por WhatsApp o en PDF.', 'Agendar el próximo control.'],
       tener: [], evaluar: [], fotos: [] });
     P.forEach(p => { p.preguntar = p.preguntar || []; p.hacer = p.hacer || []; });
     return P;
@@ -387,12 +387,13 @@
   // ---------- Informe (para la familia o profesional) ----------
   let informeTipo = 'familia';
   function informeHTML() {
-    const manual = informeTipo === 'familia' && actual.devolucion;
-    const html = informeTipo === 'familia' ? (actual.devolucion || generarDevolucion()) : generarInformeClinico();
-    return `<div class="seg" style="margin-top:6px">
+    const ia = actual.evaluacion._ia && iaVer;
+    const manual = informeTipo === 'familia' && actual.devolucion && !ia;
+    const html = ia ? iaInformeHTML(informeTipo) : informeTipo === 'familia' ? (actual.devolucion || generarDevolucion()) : generarInformeClinico();
+    return `${iaCajaHTML()}<div class="seg" style="margin-top:6px">
         <button class="chip" data-inf="familia" aria-pressed="${informeTipo === 'familia'}">Para la familia</button>
         <button class="chip" data-inf="clinico" aria-pressed="${informeTipo === 'clinico'}">Profesional</button></div>
-      <p class="ayuda">${manual ? 'Es la versión que editaste a mano en Devolución.' : 'Se arma solo con la ficha y lo que vas marcando.'}</p>
+      <p class="ayuda">${ia ? 'Redactado con IA a partir de la ficha, lo que marcaste y tus notas.' : manual ? 'Es la versión que editaste a mano en Devolución.' : 'Se arma solo con la ficha y lo que vas marcando.'}</p>
       <div class="devolucion" id="inf-prev">${html}</div>
       <div class="fila-botones no-print">
         <button class="btn sec" id="inf-copiar">📋 Copiar</button>
@@ -400,10 +401,14 @@
         ${informeTipo === 'familia' ? '<button class="btn prim" id="inf-editar">✏️ Editar y mandar</button>' : ''}</div>`;
   }
   function conectarInforme(L, repintar) {
+    conectarIA(L, repintar);
     L.querySelectorAll('[data-inf]').forEach(b => b.addEventListener('click', () => { informeTipo = b.dataset.inf; repintar(); }));
     $('#inf-copiar').addEventListener('click', () => copiar($('#inf-prev').innerText, $('#inf-copiar')));
     $('#inf-imprimir').addEventListener('click', () => imprimirHTML($('#inf-prev').innerHTML));
-    const ed = $('#inf-editar'); if (ed) ed.addEventListener('click', () => { tab = 'devolucion'; abrirTab(); });
+    const ed = $('#inf-editar'); if (ed) ed.addEventListener('click', () => {
+      if (actual.evaluacion._ia && iaVer && (!actual.devolucion || confirm('¿Reemplazo la devolución que editaste a mano por la redactada con IA?'))) { actual.devolucion = $('#inf-prev').innerHTML; sucio = true; }
+      tab = 'devolucion'; abrirTab();
+    });
   }
   function imprimirHTML(html) {
     const w = window.open('', '_blank');
@@ -411,7 +416,7 @@
     w.document.write(`<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Informe</title><link rel="stylesheet" href="${location.href.replace(/[^/]*$/, '')}estilos.css"><style>body{background:#fff;padding:24px;max-width:780px;margin:auto}.devolucion h1{font-family:var(--serif);font-style:italic;color:var(--azul);font-size:26px;margin:0}.devolucion h2{font-size:18px;color:var(--azul);margin:18px 0 6px}.dev-cab{display:flex;gap:12px;align-items:center;border-bottom:2px solid var(--rosa-cl);padding-bottom:12px}.dev-cab .iso{--lc:var(--beige);--lq:var(--azul);--lf:var(--rosa);width:52px}.meta{color:var(--gris);font-size:14px}.firma-dev{margin-top:22px;border-top:2px solid var(--rosa-cl);padding-top:10px;font-size:14px;color:var(--gris)}table{border-collapse:collapse;width:100%}td{padding:4px 8px 4px 0;vertical-align:top}</style></head><body><div class="devolucion">${html}</div><script>setTimeout(()=>print(),400)<\/script></body></html>`);
     w.document.close();
   }
-  function generarInformeClinico() {
+  function generarInformeClinico(sinNotas) {
     const r = actual.ficha, ev = actual.evaluacion, res = actual.res;
     const d = ev.datos || {}, c = ev.cierre || {};
     const fechaEval = d.fecha ? new Date(d.fecha + 'T12:00:00') : new Date();
@@ -438,7 +443,7 @@
     h += sec('Pecho y pezón', ['pezon_d', 'pezon_i', 'piel', 'mama'].map(i => fila(E.TESTS.find(t => t.id === 'pechos').items.find(x => x.id === i).t, esc(ops('pechos', i)))).join('') + fila('Notas', esc((ev.pechos || {}).notas || '')));
     if (ev.mamadera) h += sec('Mamadera', ['postura', 'ritmo', 'signos'].map(i => fila(E.TESTS.find(t => t.id === 'mamadera').items.find(x => x.id === i).t, esc(ops('mamadera', i)))).join('') + fila('Tiempo', ev.mamadera.tiempo ? esc(ev.mamadera.tiempo) + ' min' : '') + fila('Notas', esc(ev.mamadera.notas || '')));
     const notas = Object.entries(ev._notas || {}).filter(([, v]) => v && v.trim());
-    if (notas.length) h += `<h2>Notas de la sesión</h2><ul>${notas.map(([, v]) => `<li>${esc(v)}</li>`).join('')}</ul>`;
+    if (notas.length && !sinNotas) h += `<h2>Notas de la sesión</h2><ul>${notas.map(([, v]) => `<li>${esc(v)}</li>`).join('')}</ul>`;
     if (c.impresion) h += `<h2>Impresión</h2><p>${esc(c.impresion)}</p>`;
     const ind = (c.indicaciones || []).map(v => op('cierre', 'indicaciones', v)); if (c.indicaciones_txt) ind.push(c.indicaciones_txt);
     if (ind.length) h += `<h2>Plan</h2><ol>${ind.map(x => `<li>${esc(x)}</li>`).join('')}</ol>`;
@@ -447,6 +452,187 @@
     if (c.proximo) h += `<h2>Próximo control</h2><p>${esc(c.proximo)}</p>`;
     h += `<div class="firma-dev"><b>${esc(window.CONFIG.NOMBRE)}</b><br>${esc(window.CONFIG.TITULOS)}<br>📱 ${esc(window.CONFIG.WHATSAPP)}</div>`;
     return h;
+  }
+
+  // ---------- ✨ IA: control de coherencia, corrección y redacción del informe ----------
+  // Llama a Claude desde el navegador con la clave de Anthropic que Ceci guarda en su dispositivo.
+  const IA_MODELO = 'claude-opus-5-5';
+  const IA_SISTEMA = `Sos la asistente de redacción clínica de la Lic. Cecilia Quevedo (Ceci), fonoaudióloga y asesora en lactancia en Asunción, Paraguay. Después de cada consulta de lactancia, Ceci carga en su panel la ficha que completó la familia, los ítems de evaluación que marcó y notas sueltas, muchas veces dictadas por voz, con errores de ortografía, abreviaturas y frases cortadas.
+
+Tu trabajo tiene cuatro partes.
+
+1. Control de coherencia. Cruzá las notas con los ítems marcados, los puntajes y la ficha. En "incoherencias" anotá cada contradicción concreta (por ejemplo: una nota dice que el agarre es bueno pero el LATCH es bajo; la ficha dice que el frenillo se cortó y una nota dice que no). En "faltantes" anotá los datos que hacen falta para cerrar el informe y no están (peso de hoy, impresión, plan, próximo control, fotos clave, ítems sin evaluar que el caso pide). En "alertas" anotá lo que requiere atención clínica pronto (signos de alarma, derivaciones que el caso sugiere y no figuran). Cada punto en una frase corta y concreta. Si no hay nada, dejá la lista vacía.
+
+2. Notas corregidas. Para cada nota por paso, devolvé el mismo contenido con ortografía, puntuación y redacción corregidas, abreviaturas desarrolladas y frases completas. No agregues información que la nota no tenga y no quites nada clínico. En "paso" usá exactamente la clave que aparece entre corchetes.
+
+3. Informe profesional. Redactá un informe clínico claro y ordenado para otro profesional (pediatría, odontopediatría, kinesiología), con estas secciones en este orden cuando haya datos: Motivo de consulta; Antecedentes relevantes; Evaluación (antropometría, toma, motricidad orofacial y frenillo, pecho y pezón, mamadera si corresponde); Análisis; Plan e indicaciones; Derivaciones; Próximo control. En Análisis integrá los hallazgos y planteá hipótesis con prudencia ("compatible con", "sugiere"), sin diagnósticos que la evaluación no sostenga. Incluí los puntajes (LATCH, BBAT, BTAT, Martinelli) con su interpretación cuando estén. Si una sección no tiene datos, no la pongas.
+
+4. Devolución para la familia. Escribí con la voz de Ceci: cálida, cercana, en primera persona, con voseo y lenguaje neutro ("les", "acompañarles"), párrafos cortos, sin tecnicismos (o explicados con palabras simples) y con pasos concretos para la casa. Secciones sugeridas: Lo que vimos hoy; Lo que está saliendo bien; Lo que vamos a trabajar; Para hacer en casa; Próximo encuentro. Terminá la última sección con "Cualquier duda me escriben!". Como mucho un emoji suave (🤍).
+
+Reglas:
+- Nunca escribas "mamá" ni "madre". Nombrá a quien amamanta por su nombre o usá formas neutras ("quien amamanta", "les").
+- No demonices la mamadera ni el chupete: si hay indicaciones sobre su uso, formulalas en positivo y sin culpa.
+- No inventes datos, valores ni hallazgos. Lo que no está en el material no va en los informes: anotalo en "faltantes".
+- Llamá al bebé por su nombre.
+- Español de Paraguay y el Río de la Plata. En cada "texto" separá los párrafos con una línea en blanco y escribí las listas como líneas que empiezan con "- ". Sin títulos ni negritas de Markdown.
+- No pongas encabezado ni firma: el panel los agrega.`;
+  const IA_LISTA = { type: 'array', items: { type: 'string' } };
+  const IA_SECCIONES = { type: 'array', items: { type: 'object', additionalProperties: false, required: ['titulo', 'texto'], properties: { titulo: { type: 'string' }, texto: { type: 'string' } } } };
+  const IA_ESQUEMA = {
+    type: 'object', additionalProperties: false, required: ['control', 'notas_corregidas', 'informe_profesional', 'devolucion_familia'],
+    properties: {
+      control: { type: 'object', additionalProperties: false, required: ['incoherencias', 'faltantes', 'alertas'], properties: { incoherencias: IA_LISTA, faltantes: IA_LISTA, alertas: IA_LISTA } },
+      notas_corregidas: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['paso', 'texto'], properties: { paso: { type: 'string' }, texto: { type: 'string' } } } },
+      informe_profesional: IA_SECCIONES,
+      devolucion_familia: IA_SECCIONES,
+    }
+  };
+  let iaSDK = null, iaVer = true, iaPidiendo = false, iaMsg = '';
+  const iaClave = () => { try { return localStorage.getItem('panel-ia-clave') || ''; } catch (e) { return ''; } };
+  function htmlATexto(html) {
+    const d = document.createElement('div'); d.innerHTML = html;
+    d.querySelectorAll('.dev-cab, .firma-dev').forEach(x => x.remove());
+    d.querySelectorAll('br').forEach(b => b.replaceWith('\n'));
+    d.querySelectorAll('tr').forEach(tr => { tr.textContent = '- ' + [...tr.querySelectorAll('td')].map(t => t.textContent.trim()).join(': ') + '\n'; });
+    d.querySelectorAll('h2').forEach(x => { x.textContent = '\n## ' + x.textContent + '\n'; });
+    d.querySelectorAll('li').forEach(li => { li.textContent = '- ' + li.textContent + '\n'; });
+    d.querySelectorAll('p').forEach(p => { p.textContent = p.textContent + '\n'; });
+    return d.textContent.replace(/\n{3,}/g, '\n\n').trim();
+  }
+  function fichaTexto() {
+    const r = actual.ficha, out = [];
+    F.SECCIONES.forEach(s => {
+      if (s.si && !s.si(r)) return;
+      const filas = s.preguntas.filter(p => !p.si || p.si(r)).map(p => {
+        const val = valorTexto(p, r[p.id]), nota = r[p.id + '__nota'];
+        const trs = actual.archivos.filter(a => a.pregunta === p.id && a.clase === 'audio').map(a => (actual.transcripciones || {})[a.fileId]).filter(Boolean);
+        if (!val && !nota && !trs.length) return '';
+        return `- ${p.t}: ${[val, nota ? `(comentario: ${nota})` : '', ...trs.map(t => `(audio: ${t})`)].filter(Boolean).join(' ')}`;
+      }).filter(Boolean);
+      if (filas.length) out.push(`## ${s.titulo}\n${filas.join('\n')}`);
+    });
+    return out.join('\n\n');
+  }
+  function dossierIA() {
+    const ev = actual.evaluacion, P = pasosConsulta(), cs = ev._consulta || {}, checks = cs.checks || {};
+    const notas = P.map(p => [p, ((ev._notas || {})[p.k] || '').trim()]).filter(([, t]) => t);
+    const sinHacer = P.map(p => { const arr = p.preguntar.concat(p.hacer).filter((_, j) => !checks[`${p.k}.${j}`]); return arr.length && arr.length < p.preguntar.length + p.hacer.length ? `- ${p.t}: ${arr.join(' / ')}` : ''; }).filter(Boolean);
+    const fotos = actual.archivos.filter(a => a.clase === 'protocolo').map(a => a.etiqueta || a.pregunta);
+    return [
+      `# Ficha que completó la familia\n${fichaTexto()}`,
+      `# Resumen automático de la ficha\n${A.aTexto(actual.res)}`,
+      `# Evaluación marcada en la consulta\n${htmlATexto(generarInformeClinico(true))}`,
+      `# Notas de Ceci por paso\n${notas.length ? notas.map(([p, t]) => `[${p.k}] ${p.t}:\n${t}`).join('\n\n') : '(sin notas)'}`,
+      sinHacer.length ? `# Ítems del protocolo que no marcó como hechos (en pasos que sí empezó)\n${sinHacer.join('\n')}` : '',
+      `# Fotos de la consulta\n${fotos.length ? fotos.map(f => '- ' + f).join('\n') : '(ninguna cargada)'}`,
+    ].filter(Boolean).join('\n\n');
+  }
+  async function iaLlamar(contenido) {
+    if (!iaSDK) iaSDK = (await import('./vendor/anthropic-sdk.mjs')).default;
+    const cliente = new iaSDK({ apiKey: iaClave(), dangerouslyAllowBrowser: true, maxRetries: 2 });
+    const pedido = {
+      model: IA_MODELO, max_tokens: 16000, system: IA_SISTEMA,
+      messages: [{ role: 'user', content: contenido }],
+      output_config: { effort: 'medium', format: { type: 'json_schema', schema: IA_ESQUEMA } },
+    };
+    let r;
+    try { r = await cliente.beta.messages.create({ ...pedido, betas: ['server-side-fallback-2026-07-01'], fallbacks: 'default' }); }
+    catch (e) { if (e && e.status === 400 && /fallback/i.test(e.message || '')) r = await cliente.messages.create(pedido); else throw e; }
+    if (r.stop_reason === 'refusal') throw new Error('La IA no pudo procesar este caso. Probá de nuevo en un rato.');
+    if (r.stop_reason === 'max_tokens') throw new Error('La respuesta quedó cortada. Probá de nuevo.');
+    const txt = r.content.filter(b => b.type === 'text').map(b => b.text).join('');
+    return JSON.parse(txt);
+  }
+  function iaError(e) {
+    const s = e && e.status, m = (e && e.message) || '';
+    if (s === 401) { try { localStorage.removeItem('panel-ia-clave'); } catch (x) { } return 'La clave de IA no es válida. Pegala de nuevo.'; }
+    if (/credit balance|billing/i.test(m)) return 'Tu cuenta de Anthropic se quedó sin crédito. Cargá saldo en console.anthropic.com → Billing.';
+    if (s === 429 || s === 529) return 'La IA está con mucho uso. Probá de nuevo en un minuto.';
+    if (s >= 500) return 'La IA no respondió. Probá de nuevo en un minuto.';
+    if (e instanceof TypeError || /fetch|network/i.test(m)) return 'No hay conexión con la IA. Revisá internet y probá de nuevo.';
+    return m || 'No se pudo procesar.';
+  }
+  async function iaGenerar(alTerminar) {
+    if (iaPidiendo) return;
+    iaPidiendo = true; iaMsg = '';
+    if (alTerminar) alTerminar();
+    const t0 = Date.now();
+    const tic = () => { const el = document.getElementById('ia-estado'); if (el) el.textContent = `Leyendo y ordenando tus notas… ${Math.round((Date.now() - t0) / 1000)} s (suele tardar menos de un minuto)`; };
+    tic(); const int = setInterval(tic, 1000);
+    try {
+      const out = await iaLlamar(dossierIA());
+      actual.evaluacion._ia = Object.assign({ fecha: new Date().toISOString() }, out);
+      iaVer = true; cambio(); guardarEval();
+    } catch (e) { iaMsg = '⚠️ ' + iaError(e); console.warn(e); }
+    finally { clearInterval(int); iaPidiendo = false; }
+    if (alTerminar) alTerminar();
+  }
+  function parrafosHTML(t) {
+    const item = l => /^[-•]\s+/.test(l);
+    return String(t || '').split(/\n\s*\n/).map(b => {
+      const ls = b.split('\n').map(x => x.trim()).filter(Boolean);
+      let h = '', lista = [];
+      const cerrar = () => { if (lista.length) h += `<ul>${lista.map(x => `<li>${esc(x)}</li>`).join('')}</ul>`; lista = []; };
+      ls.forEach(l => { if (item(l)) lista.push(l.replace(/^[-•]\s+/, '')); else { cerrar(); h += `<p>${esc(l)}</p>`; } });
+      cerrar(); return h;
+    }).join('');
+  }
+  function iaInformeHTML(tipo) {
+    const ia = actual.evaluacion._ia, r = actual.ficha, d = actual.evaluacion.datos || {};
+    const fechaEval = d.fecha ? new Date(d.fecha + 'T12:00:00') : new Date();
+    const nac = r.bebe_nac ? new Date(r.bebe_nac + 'T12:00:00') : null;
+    const edad = nac ? Math.floor((fechaEval - nac) / 86400000) : null;
+    const tit = tipo === 'familia' ? 'Devolución de la asesoría' : 'Informe de evaluación en lactancia';
+    const meta = [r.bebe_nombre || '', edad != null ? A.edadTexto(edad) : '', A.fmtFecha(fechaEval)].filter(Boolean).map(esc).join(' · ');
+    const secs = tipo === 'familia' ? ia.devolucion_familia : ia.informe_profesional;
+    return `<div class="dev-cab"><div class="iso">${C.ISO}</div><div><h1>${tit}</h1><div class="meta">${meta}</div></div></div>`
+      + (secs || []).map(s => `<h2>${esc(s.titulo)}</h2>${parrafosHTML(s.texto)}`).join('')
+      + `<div class="firma-dev"><b>${esc(window.CONFIG.NOMBRE)}</b><br>${esc(window.CONFIG.TITULOS)}<br>📱 ${esc(window.CONFIG.WHATSAPP)}</div>`;
+  }
+  function iaNotasDistintas() {
+    const ia = actual.evaluacion._ia, n = actual.evaluacion._notas || {};
+    return ((ia && ia.notas_corregidas) || []).filter(x => n[x.paso] != null && x.texto.trim() && x.texto.trim() !== String(n[x.paso]).trim());
+  }
+  function iaCajaHTML() {
+    const ia = actual.evaluacion._ia;
+    if (!iaClave()) return `<div class="ia-caja no-print"><b>✨ Corregir y redactar con IA</b>
+      <p class="ayuda" style="margin:4px 0 8px">Revisa la coherencia de todo lo que cargaste, corrige ortografía y redacción de tus notas y arma los dos informes. Pegá tu clave de Anthropic una sola vez en este dispositivo (<a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener">sacarla acá</a>).</p>
+      <div class="ia-clave"><input type="password" id="ia-clave-in" placeholder="sk-ant-…" autocomplete="off" spellcheck="false"><button class="btn prim" id="ia-clave-ok">Guardar</button></div>
+      <p class="ayuda" id="ia-estado">${esc(iaMsg)}</p></div>`;
+    let h = `<div class="ia-caja no-print">`;
+    if (iaPidiendo) h += `<b>✨ Procesando…</b>`;
+    else if (!ia) h += `<button class="btn prim" id="ia-generar" style="width:100%">✨ Revisar, corregir y redactar con IA</button><p class="ayuda" style="margin:6px 0 0">Usa la ficha, todo lo que marcaste y tus notas. Hacelo al terminar la consulta.</p>`;
+    else {
+      const c = ia.control || {}, n = (c.incoherencias || []).length + (c.faltantes || []).length + (c.alertas || []).length;
+      const grupo = (arr, t) => arr && arr.length ? `<div class="ia-grupo"><b>${t}</b><ul>${arr.map(x => `<li>${esc(x)}</li>`).join('')}</ul></div>` : '';
+      const dif = iaNotasDistintas().length;
+      h += `<div class="seg"><button class="chip" data-iaver="1" aria-pressed="${iaVer}">✨ Redactado con IA</button><button class="chip" data-iaver="0" aria-pressed="${!iaVer}">Automático</button></div>
+        <p class="ayuda" style="margin:6px 0">Generado ${esc(new Date(ia.fecha).toLocaleString('es-PY', { dateStyle: 'short', timeStyle: 'short' }))} con lo que había cargado en ese momento. Revisalo antes de mandarlo.</p>
+        <details class="ia-control" ${n ? 'open' : ''}><summary>🔎 Control de coherencia${n ? ` (${n})` : ': todo en orden'}</summary>${grupo(c.alertas, '🚩 Alertas')}${grupo(c.incoherencias, '⚠️ No coincide')}${grupo(c.faltantes, '📋 Falta')}</details>
+        <div class="fila-botones" style="margin-top:8px">${iaPidiendo ? '' : dif ? `<button class="btn sec" id="ia-notas">✍️ Pasar la corrección a mis notas (${dif})</button>` : ''}${iaPidiendo ? '' : '<button class="btn sec" id="ia-generar">↻ Volver a generar</button>'}</div>`;
+    }
+    return h + `<p class="ayuda" id="ia-estado" style="margin:6px 0 0">${esc(iaMsg)}</p></div>`;
+  }
+  function conectarIA(L, repintar) {
+    const ok = L.querySelector('#ia-clave-ok');
+    if (ok) ok.addEventListener('click', () => {
+      const v = L.querySelector('#ia-clave-in').value.trim();
+      if (!/^sk-ant-/.test(v)) { L.querySelector('#ia-estado').textContent = 'La clave empieza con sk-ant-. Copiala entera.'; return; }
+      try { localStorage.setItem('panel-ia-clave', v); } catch (e) { }
+      iaMsg = '';
+      repintar();
+    });
+    const g = L.querySelector('#ia-generar');
+    if (g) g.addEventListener('click', () => iaGenerar(repintar));
+    L.querySelectorAll('[data-iaver]').forEach(b => b.addEventListener('click', () => { iaVer = b.dataset.iaver === '1'; repintar(); }));
+    const n = L.querySelector('#ia-notas');
+    if (n) n.addEventListener('click', () => {
+      const ev = actual.evaluacion; ev._notas = ev._notas || {};
+      iaNotasDistintas().forEach(x => { ev._notas[x.paso] = x.texto.trim(); });
+      cambio(); guardarEval(); repintar();
+      const pr = $('#cons-proto .paso textarea[data-evin^="_notas."]');
+      if (pr) pr.value = ev._notas[pr.dataset.evin.split('.')[1]] || '';
+    });
   }
 
   // ---------- Archivos ----------
@@ -660,7 +846,7 @@
       const s = sugerido !== undefined && val === undefined ? `<div class="sug">Según la ficha: ${esc((i.opciones.find(x => x.v === sugerido) || {}).t || '')} · <button type="button" class="btn-mini" data-sug style="color:var(--azul);padding:0">usar las sugerencias</button></div>` : '';
       return `<div class="titulo">${esc(i.t)}</div><div class="chips ${i.tipo === 'puntos' ? 'op-puntos' : ''}">${ops}</div>${s}`;
     }
-    if (i.tipo === 'texto') return `<div class="titulo">${esc(i.t)}</div><textarea data-evin="${k}" style="margin-top:8px">${esc(val || '')}</textarea><button type="button" class="dictar no-print" data-dictar="${k}">🎙️ Dictar</button>`;
+    if (i.tipo === 'texto') return `<div class="titulo">${esc(i.t)}</div><textarea data-evin="${k}" spellcheck="true" lang="es" autocapitalize="sentences" style="margin-top:8px">${esc(val || '')}</textarea><button type="button" class="dictar no-print" data-dictar="${k}">🎙️ Dictar</button>`;
     if (i.tipo === 'numero') return `<div class="titulo">${esc(i.t)}</div><div class="con-unidad" style="margin-top:8px"><input type="number" inputmode="decimal" data-evin="${k}" value="${esc(val || '')}"><span>${esc(i.unidad || '')}</span></div>`;
     if (i.tipo === 'fecha') return `<div class="titulo">${esc(i.t)}</div><input type="date" data-evin="${k}" value="${esc(val || new Date().toISOString().slice(0, 10))}" style="margin-top:8px">`;
     return `<div class="titulo">${esc(i.t)}</div><input type="text" data-evin="${k}" value="${esc(val || '')}" style="margin-top:8px">`;
@@ -689,7 +875,7 @@
   let sucio = false;
   function cambio() { sucio = true; const e = $('#ev-estado'); if (e) e.textContent = 'Cambios sin guardar'; try { localStorage.setItem('ev-' + actual.id, JSON.stringify(actual.evaluacion)); } catch (x) { } }
   async function guardarEval() {
-    const est = $('#ev-estado');
+    const est = $('#ev-estado') || {};
     if (DEMO) { try { localStorage.setItem('panel-demo-eval', JSON.stringify({ evaluacion: actual.evaluacion, devolucion: actual.devolucion })); } catch (e) { } est.textContent = '✓ Guardado (modo prueba, solo en este dispositivo)'; sucio = false; return; }
     est.textContent = 'Guardando…';
     try { await api({ accion: 'guardar', id: actual.id, evaluacion: actual.evaluacion, estado: 'Evaluada' }); est.textContent = '✓ Guardado en tu planilla'; sucio = false; }
@@ -780,7 +966,7 @@
   function tabDevolucion(v) {
     const html = actual.devolucion || generarDevolucion();
     v.innerHTML = `<p class="ayuda no-print" style="margin-top:18px">Se arma con la ficha y tu evaluación. Tocá el texto para editarlo.</p>
-      <div class="devolucion" id="dev" contenteditable="true">${html}</div>
+      <div class="devolucion" id="dev" contenteditable="true" spellcheck="true" lang="es">${html}</div>
       <div class="fila-botones no-print">
         <button class="btn sec" id="dev-regen">↻ Rearmar</button>
         <button class="btn sec" id="dev-copiar">📋 Copiar texto</button>
