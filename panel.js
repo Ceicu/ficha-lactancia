@@ -216,7 +216,7 @@
 
     // 10. Después
     P.push({ k: 'despues', t: 'Después de la consulta', corto: 'Después', min: 5,
-      hacer: ['Corregir ortografía y redacción y revisar la coherencia: columna de la izquierda → Informe → ✨ IA.', 'Revisar el informe (para la familia y profesional).', 'Mandar la devolución por WhatsApp o en PDF.', 'Agendar el próximo control.'],
+      hacer: ['Pedir la revisión de ortografía, redacción y coherencia: columna de la izquierda → Informe → ✨ Pedir revisión a Claude.', 'Revisar el informe (para la familia y profesional).', 'Mandar la devolución por WhatsApp o en PDF.', 'Agendar el próximo control.'],
       tener: [], evaluar: [], fotos: [] });
     P.forEach(p => { p.preguntar = p.preguntar || []; p.hacer = p.hacer || []; });
     return P;
@@ -595,10 +595,14 @@ Reglas:
   }
   function iaCajaHTML() {
     const ia = actual.evaluacion._ia;
-    if (!iaClave()) return `<div class="ia-caja no-print"><b>✨ Corregir y redactar con IA</b>
-      <p class="ayuda" style="margin:4px 0 8px">Revisa la coherencia de todo lo que cargaste, corrige ortografía y redacción de tus notas y arma los dos informes. Pegá tu clave de Anthropic una sola vez en este dispositivo (<a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener">sacarla acá</a>).</p>
-      <div class="ia-clave"><input type="password" id="ia-clave-in" placeholder="sk-ant-…" autocomplete="off" spellcheck="false"><button class="btn prim" id="ia-clave-ok">Guardar</button></div>
-      <p class="ayuda" id="ia-estado">${esc(iaMsg)}</p></div>`;
+    if (!iaClave()) {
+      const pedida = (actual.evaluacion._revision || {}).pedida;
+      const cuando = pedida ? new Date(pedida).toLocaleString('es-PY', { dateStyle: 'short', timeStyle: 'short' }) : '';
+      return `<div class="ia-caja no-print">
+        <button class="btn prim" id="rev-pedir" style="width:100%">✨ ${pedida ? 'Pedir de nuevo con lo último que cargaste' : 'Pedir revisión a Claude'}</button>
+        <p class="ayuda" style="margin:6px 0 0">${pedida ? `✓ Pedida (${esc(cuando)}). Te la mando en nuestro chat en la próxima revisión (9, 14 o 20 h). Si la necesitás ya, escribime ahí.` : 'Reviso la coherencia de todo lo que cargaste, corrijo ortografía y redacción de tus notas y te mando el informe profesional y la devolución en nuestro chat. Sin costo.'}</p>
+        <p class="ayuda" id="ia-estado" style="margin:6px 0 0">${esc(iaMsg)}</p></div>`;
+    }
     let h = `<div class="ia-caja no-print">`;
     if (iaPidiendo) h += `<b>✨ Procesando…</b>`;
     else if (!ia) h += `<button class="btn prim" id="ia-generar" style="width:100%">✨ Revisar, corregir y redactar con IA</button><p class="ayuda" style="margin:6px 0 0">Usa la ficha, todo lo que marcaste y tus notas. Hacelo al terminar la consulta.</p>`;
@@ -614,6 +618,16 @@ Reglas:
     return h + `<p class="ayuda" id="ia-estado" style="margin:6px 0 0">${esc(iaMsg)}</p></div>`;
   }
   function conectarIA(L, repintar) {
+    const rp = L.querySelector('#rev-pedir');
+    if (rp) rp.addEventListener('click', async () => {
+      rp.disabled = true; iaMsg = '';
+      const ev = actual.evaluacion, antes = ev._revision;
+      ev._revision = { pedida: new Date().toISOString() };
+      cambio();
+      const ok = await guardarEval();
+      if (!ok) { ev._revision = antes; iaMsg = '⚠️ No se pudo guardar el pedido. Revisá internet y probá de nuevo.'; }
+      repintar();
+    });
     const ok = L.querySelector('#ia-clave-ok');
     if (ok) ok.addEventListener('click', () => {
       const v = L.querySelector('#ia-clave-in').value.trim();
@@ -876,10 +890,10 @@ Reglas:
   function cambio() { sucio = true; const e = $('#ev-estado'); if (e) e.textContent = 'Cambios sin guardar'; try { localStorage.setItem('ev-' + actual.id, JSON.stringify(actual.evaluacion)); } catch (x) { } }
   async function guardarEval() {
     const est = $('#ev-estado') || {};
-    if (DEMO) { try { localStorage.setItem('panel-demo-eval', JSON.stringify({ evaluacion: actual.evaluacion, devolucion: actual.devolucion })); } catch (e) { } est.textContent = '✓ Guardado (modo prueba, solo en este dispositivo)'; sucio = false; return; }
+    if (DEMO) { try { localStorage.setItem('panel-demo-eval', JSON.stringify({ evaluacion: actual.evaluacion, devolucion: actual.devolucion })); } catch (e) { } est.textContent = '✓ Guardado (modo prueba, solo en este dispositivo)'; sucio = false; return true; }
     est.textContent = 'Guardando…';
-    try { await api({ accion: 'guardar', id: actual.id, evaluacion: actual.evaluacion, estado: 'Evaluada' }); est.textContent = '✓ Guardado en tu planilla'; sucio = false; }
-    catch (e) { est.textContent = '⚠️ No se pudo guardar. Queda una copia en este dispositivo; probá de nuevo.'; }
+    try { await api({ accion: 'guardar', id: actual.id, evaluacion: actual.evaluacion, estado: 'Evaluada' }); est.textContent = '✓ Guardado en tu planilla'; sucio = false; return true; }
+    catch (e) { est.textContent = '⚠️ No se pudo guardar. Queda una copia en este dispositivo; probá de nuevo.'; return false; }
   }
   window.addEventListener('beforeunload', e => { if (sucio) { e.preventDefault(); e.returnValue = ''; } });
 
